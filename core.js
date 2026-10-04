@@ -48,38 +48,51 @@
     return t.replace(/[\s,;:.!]+$/, '').trim();
   }
 
+  // Rule-based fallback for when AI clean-up is unavailable.
+  // Returns items: [{kind: 'section'|'song', title, author, parts: [{label, lines}]}]
   function parseLines(lines) {
-    var songs = [];
+    var items = [];
     var song = null;
-    var stanza = [];
+    var part = null;
+    var pendingLabel = '';
 
-    function flushStanza() {
-      if (song && stanza.length) song.stanzas.push(stanza);
-      stanza = [];
+    function flushPart() {
+      if (song && part && part.lines.length) song.parts.push(part);
+      part = null;
     }
     function flushSong() {
-      flushStanza();
-      if (song && song.stanzas.length) songs.push(song);
+      flushPart();
+      if (song && song.parts.length) items.push(song);
       song = null;
+      pendingLabel = '';
     }
     function startSong(title, author) {
       flushSong();
-      song = { title: title || '', author: author || '', stanzas: [] };
+      song = { kind: 'song', title: title || '', author: author || '', parts: [] };
     }
-    function hasContent() { return song && (song.stanzas.length || stanza.length); }
+    function hasContent() { return song && (song.parts.length || (part && part.lines.length)); }
+    function push(line) {
+      if (!song) startSong('', '');
+      if (!part) { part = { label: pendingLabel, lines: [] }; pendingLabel = ''; }
+      part.lines.push(line);
+    }
 
     for (var i = 0; i < lines.length; i++) {
       var line = lines[i];
       var next = lines[i + 1] || '';
-      if (!line) { flushStanza(); continue; }
+      if (!line) { flushPart(); continue; }
       if (DATE.test(line)) continue;
-      if (SECTIONS.test(line)) { flushSong(); continue; }
+      if (SECTIONS.test(line)) {
+        flushSong();
+        items.push({ kind: 'section', title: cleanTitle(titleCase(line)), author: '', parts: [] });
+        continue;
+      }
 
       var m = line.match(LYRICS);
       if (m) {
-        var parts = m[1].split(/\s+by\s+/i);
-        var author = parts.length > 1 ? parts.pop() : '';
-        var title = cleanTitle(parts.join(' by '));
+        var bits = m[1].split(/\s+by\s+/i);
+        var author = bits.length > 1 ? bits.pop() : '';
+        var title = cleanTitle(bits.join(' by '));
         if (song && !hasContent()) { song.title = title; song.author = author; }
         else startSong(title, author);
         continue;
@@ -88,11 +101,15 @@
       m = line.match(NUMBER);
       if (m && (!m[2] || /^[A-Za-z(]/.test(m[2]))) {
         startSong('', '');
-        if (m[2]) stanza.push(m[2]);
+        if (m[2]) push(m[2]);
         continue;
       }
 
-      if (LABEL.test(line)) { flushStanza(); continue; }
+      if (LABEL.test(line)) {
+        flushPart();
+        pendingLabel = cleanTitle(titleCase(line.replace(/^[\[(]|[\])]$/g, '').replace(/:$/, '')));
+        continue;
+      }
 
       // ALL-CAPS line standing alone -> title of a new song
       if (isTitleCaps(line) && !next && (!song || hasContent() || !song.title)) {
@@ -101,15 +118,14 @@
         continue;
       }
 
-      if (!song) startSong('', '');
-      stanza.push(line);
+      push(line);
     }
     flushSong();
 
-    songs.forEach(function (s) {
-      if (!s.title) s.title = shortTitle(s.stanzas[0][0]);
+    items.forEach(function (s) {
+      if (s.kind === 'song' && !s.title) s.title = shortTitle(s.parts[0].lines[0]);
     });
-    return songs;
+    return items;
   }
 
   function shortTitle(line) {
@@ -122,20 +138,57 @@
     return s.toLowerCase().replace(/(^|[\s(\-'])([a-z])/g, function (_, a, b) { return a + b.toUpperCase(); });
   }
 
-  // song <-> editable text (blank line between stanzas)
-  function stanzasToText(stanzas) {
-    return stanzas.map(function (s) { return s.join('\n'); }).join('\n\n');
+  // Song parts <-> editable text. "[Label]" lines name a part; blank lines split parts.
+  function partsToText(parts) {
+    return parts.map(function (p) {
+      return (p.label ? '[' + p.label + ']\n' : '') + p.lines.join('\n');
+    }).join('\n\n');
   }
-  function textToStanzas(text) {
-    return text.split(/\n\s*\n/).map(function (b) {
-      return b.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
-    }).filter(function (s) { return s.length; });
+  function textToParts(text) {
+    var parts = [], part = null;
+    text.split('\n').forEach(function (raw) {
+      var line = raw.trim();
+      var m = line.match(/^\[(.+)\]$/);
+      if (!line) { if (part && part.lines.length) parts.push(part); part = null; return; }
+      if (m) {
+        if (part && part.lines.length) parts.push(part);
+        part = { label: m[1].trim(), lines: [] };
+        return;
+      }
+      if (!part) part = { label: '', lines: [] };
+      part.lines.push(line);
+    });
+    if (part && part.lines.length) parts.push(part);
+    return parts;
   }
 
-  function toSlides(stanzas, perSlide) {
+  // Split parts into slides of up to perSlide lines. A "(translation)" line
+  // stays on the same slide as the line before it, and any line longer than
+  // maxChars gets a slide to itself (with its translation, if any).
+  function toSlides(parts, perSlide, maxChars) {
     var slides = [];
-    stanzas.forEach(function (st) {
-      for (var i = 0; i < st.length; i += perSlide) slides.push(st.slice(i, i + perSlide));
+    maxChars = maxChars || Infinity;
+    parts.forEach(function (p) {
+      var units = [];
+      p.lines.forEach(function (line) {
+        var prev = units[units.length - 1];
+        if (/^\(.*\)$/.test(line) && prev && prev.lines.length === 1 && !/^\(.*\)$/.test(prev.lines[0])) {
+          prev.lines.push(line);
+        } else {
+          units.push({ lines: [line], long: line.length > maxChars });
+        }
+      });
+      var cur = [], curLong = false;
+      units.forEach(function (u) {
+        var size = Math.max(perSlide, u.lines.length);
+        if (cur.length && (u.long || curLong || cur.length + u.lines.length > size)) {
+          slides.push({ label: p.label, lines: cur });
+          cur = []; curLong = false;
+        }
+        cur = cur.concat(u.lines);
+        curLong = curLong || u.long;
+      });
+      if (cur.length) slides.push({ label: p.label, lines: cur });
     });
     return slides;
   }
@@ -175,7 +228,7 @@
   var TPL_PRES = 1, TPL_SLIDE = 2;
   var NOW_FILETIME = "CAST((julianday('now') - 2305813.5) * 864000000000 AS INTEGER)";
 
-  // songs: [{title, author, slides: [[line, line], ...]}]
+  // presentations: [{title, author, slides: [[line, line], ...]}]
   function buildDatabase(SQL, templateBytes, songs) {
     var db = new SQL.Database(templateBytes);
     var cols = {};
@@ -281,9 +334,9 @@
 
   var api = {
     docxXmlToLines: docxXmlToLines, parseLines: parseLines,
-    stanzasToText: stanzasToText, textToStanzas: textToStanzas, toSlides: toSlides,
+    partsToText: partsToText, textToParts: textToParts, toSlides: toSlides,
     slideRtf: slideRtf, buildDatabase: buildDatabase, buildEwsx: buildEwsx
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.EWCore = api;
-})(this);
+})(typeof window !== "undefined" ? window : globalThis);

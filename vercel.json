@@ -1,0 +1,5 @@
+{
+  "functions": {
+    "api/structure.js": { "maxDuration": 300 }
+  }
+}

@@ -4,78 +4,152 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lyrics to EasyWorship</title>
-<meta name="description" content="Upload a .docx of song lyrics and download a ready-made EasyWorship schedule (.ewsx), two lines per slide.">
+<meta name="description" content="Upload a .docx of song lyrics and download a ready-made EasyWorship schedule (.ewsx).">
 <link rel="icon" href="favicon.ico">
 <style>
   @font-face { font-family: "Inter Tight"; src: url("assets/fonts/inter-tight.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
   :root {
     --bg: #03060d; --panel: rgba(255,255,255,.04); --ink: #eef4ff; --muted: #8a99b3;
-    --line: rgba(140,180,255,.16); --blue: #2f7fe0; --blue-soft: #6fb0ff; --danger: #ff7b7b;
+    --line: rgba(140,180,255,.16); --blue: #2f7fe0; --blue-soft: #6fb0ff; --danger: #ff7b7b; --gold: #f2c86b;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 "Inter Tight", system-ui, sans-serif; }
-  main { max-width: 980px; margin: 0 auto; padding: 40px 16px 80px; }
+  main { max-width: 1180px; margin: 0 auto; padding: 40px 16px 80px; }
   h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.1; margin: 0 0 8px; letter-spacing: -.02em; }
-  p.lead { color: var(--muted); margin: 0 0 28px; max-width: 640px; }
-  .drop { display: block; border: 1.5px dashed var(--line); border-radius: 16px; padding: 36px 20px; text-align: center; background: var(--panel); cursor: pointer; transition: border-color .15s, background .15s; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  p.lead { color: var(--muted); margin: 0 0 24px; max-width: 680px; }
+  code { font-size: .92em; }
+  .drop { display: block; border: 1.5px dashed var(--line); border-radius: 16px; padding: 32px 20px; text-align: center; background: var(--panel); cursor: pointer; transition: border-color .15s, background .15s; }
   .drop.over, .drop:hover { border-color: var(--blue-soft); background: rgba(47,127,224,.08); }
   .drop strong { display: block; font-size: 18px; margin-bottom: 4px; }
   .drop span { display: block; color: var(--muted); }
+  .ai-opt { display: flex; gap: 8px; align-items: center; margin-top: 12px; color: var(--muted); }
   input[type=file] { display: none; }
-  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin: 28px 0 16px; position: sticky; top: 0; padding: 12px 0; background: var(--bg); z-index: 2; border-bottom: 1px solid var(--line); }
-  .bar .opts { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; color: var(--muted); }
-  select, input[type=text], textarea { background: rgba(255,255,255,.05); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; font: inherit; padding: 6px 10px; }
-  textarea { width: 100%; min-height: 160px; resize: vertical; line-height: 1.45; font-size: 14px; }
+  select, input[type=text], input[type=number], textarea { background: rgba(255,255,255,.05); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; font: inherit; padding: 6px 10px; }
+  input[type=number] { width: 72px; }
+  textarea { width: 100%; min-height: 180px; resize: vertical; line-height: 1.45; font-size: 14px; }
   button { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.06); color: var(--ink); padding: 8px 14px; }
   button:hover { border-color: var(--blue-soft); }
-  button.primary { background: var(--blue); border-color: var(--blue); font-weight: 600; padding: 10px 18px; }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary { background: var(--blue); border-color: var(--blue); font-weight: 600; }
   button.primary:hover { background: #3b8cf0; }
-  button.icon { padding: 4px 10px; font-size: 13px; }
+  button.icon { padding: 3px 9px; font-size: 13px; }
   button.danger:hover { border-color: var(--danger); color: var(--danger); }
-  .song { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 16px; margin-bottom: 14px; }
-  .song-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
-  .song-head .num { color: var(--blue-soft); font-weight: 600; min-width: 24px; }
-  .song-head input.title { flex: 1 1 220px; font-weight: 600; }
-  .song-head input.author { flex: 0 1 180px; }
-  .song-head .tools { display: flex; gap: 6px; }
-  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
-  .slides { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; align-content: start; max-height: 320px; overflow: auto; }
-  .slide { aspect-ratio: 16/9; background: #000; border: 1px solid #1d2638; border-radius: 6px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 6px; text-align: center; font-size: 10px; line-height: 1.3; color: #fff; overflow: hidden; }
-  .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
   .status { color: var(--muted); margin-top: 14px; min-height: 1.5em; }
   .status.err { color: var(--danger); }
-  .empty { display: none; }
-  .add { margin-top: 4px; }
+  .status.busy::before { content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 8px; border: 2px solid var(--blue-soft); border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -1px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hidden { display: none !important; }
+
+  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin: 24px 0 16px; position: sticky; top: 0; padding: 12px 0; background: var(--bg); z-index: 5; border-bottom: 1px solid var(--line); }
+  .bar .opts { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; color: var(--muted); }
+  .bar .acts { display: flex; gap: 8px; }
+  .layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 820px) { .layout { grid-template-columns: 1fr; } .schedule { position: static !important; max-height: none !important; } }
+
+  .schedule { position: sticky; top: 76px; max-height: calc(100vh - 96px); overflow: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 14px; }
+  .sched-list { list-style: none; margin: 0 0 12px; padding: 0; }
+  .sched-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; cursor: grab; border: 1px solid transparent; user-select: none; }
+  .sched-item:hover { background: rgba(255,255,255,.05); }
+  .sched-item.dragging { opacity: .4; }
+  .sched-item.drop-before { border-top-color: var(--blue-soft); }
+  .sched-item.drop-after { border-bottom-color: var(--blue-soft); }
+  .sched-item .grip { color: var(--muted); font-size: 12px; }
+  .sched-item .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sched-item .count { color: var(--muted); font-size: 12px; }
+  .sched-item.section .name { color: var(--gold); font-weight: 600; text-transform: uppercase; font-size: 13px; letter-spacing: .04em; }
+  .sched-add { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sched-add button { font-size: 13px; padding: 6px 10px; }
+
+  .card { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 16px; margin-bottom: 14px; scroll-margin-top: 80px; }
+  .card.flash { border-color: var(--blue-soft); }
+  .card.section { border-color: rgba(242,200,107,.35); }
+  .card-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .card-head .kind { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 2px 8px; }
+  .card.section .kind { color: var(--gold); border-color: rgba(242,200,107,.35); }
+  .card-head input.title { flex: 1 1 220px; font-weight: 600; }
+  .card-head input.author { flex: 0 1 180px; }
+  .card-head .tools { display: flex; gap: 6px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 1000px) { .cols { grid-template-columns: 1fr; } }
+  .slides { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; align-content: start; max-height: 360px; overflow: auto; }
+  .slide-wrap { display: flex; flex-direction: column; gap: 3px; }
+  .slide-label { font-size: 11px; color: var(--blue-soft); min-height: 1.3em; }
+  .slide { aspect-ratio: 16/9; background: #000; border: 1px solid #1d2638; border-radius: 6px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 6px; text-align: center; font-size: 10px; line-height: 1.3; color: #fff; overflow: hidden; }
+  .slide.title { font-size: 15px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .hint { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+
+  .overlay { position: fixed; inset: 0; background: var(--bg); z-index: 20; overflow: auto; padding: 24px 16px 60px; }
+  .overlay-inner { max-width: 1180px; margin: 0 auto; }
+  .overlay-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; position: sticky; top: -24px; background: var(--bg); padding: 12px 0; }
+  .overlay-head h3 { margin: 0; font-size: 22px; }
+  .pv-item { margin-bottom: 26px; }
+  .pv-item h4 { margin: 0 0 8px; font-size: 15px; display: flex; gap: 10px; align-items: baseline; }
+  .pv-item h4 small { color: var(--muted); font-weight: 400; }
+  .pv-slides { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .pv-slides .slide { font-size: 13px; }
+  .pv-slides .slide.title { font-size: 22px; }
 </style>
 </head>
 <body>
 <main>
   <h1>Lyrics → EasyWorship</h1>
-  <p class="lead">Upload a Word document of song lyrics and get an EasyWorship schedule (<code>.ewsx</code>) with every song split into slides. Check the songs below, fix anything that came out wrong, then download.</p>
+  <p class="lead">Upload a Word document of song lyrics in any layout. AI sorts it into title slides and songs, marks verses, choruses and bridges, and tidies the text. You can then reorder the schedule, preview every slide and download a <code>.ewsx</code> for EasyWorship.</p>
 
   <label class="drop" id="drop">
     <input type="file" id="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
     <strong>Drop your lyrics .docx here</strong>
-    <span>or click to choose a file. It stays on your device; nothing is uploaded.</span>
+    <span>or click to choose a file</span>
   </label>
+  <label class="ai-opt"><input type="checkbox" id="useAi" checked> Clean up with AI (sends the document's text to Claude; turn off to use the basic rules only)</label>
   <div class="status" id="status"></div>
 
-  <section id="editor" class="empty">
+  <section id="editor" class="hidden">
     <div class="bar">
       <div class="opts">
         <span id="summary"></span>
         <label>Lines per slide
           <select id="perSlide"><option>1</option><option selected>2</option><option>3</option><option>4</option></select>
         </label>
+        <label title="Lines longer than this get a slide to themselves">Long line at
+          <input type="number" id="maxChars" min="10" max="200" value="45"> chars
+        </label>
       </div>
-      <button class="primary" id="download">Download schedule</button>
+      <div class="acts">
+        <button id="previewBtn">Preview schedule</button>
+        <button class="primary" id="download">Download .ewsx</button>
+      </div>
     </div>
-    <p class="hint">A new song starts at each number (“2.”), each “Lyrics: Title by Artist” line, or each ALL-CAPS title. Blank lines split verses, and labels like [Chorus] are left out. In the lyrics boxes, a blank line always starts a new slide.</p>
-    <div id="songs"></div>
-    <button class="add" id="addSong">+ Add song</button>
+
+    <div class="layout">
+      <aside class="schedule">
+        <h2>Schedule</h2>
+        <ul class="sched-list" id="schedList"></ul>
+        <div class="sched-add">
+          <button id="addTitle">+ Title slide</button>
+          <button id="addSong">+ Song</button>
+        </div>
+      </aside>
+      <div>
+        <p class="hint">Drag items in the schedule to reorder them. In the lyrics boxes, a <code>[Chorus]</code> line names the part below it, and a blank line starts a new slide.</p>
+        <div id="cards"></div>
+      </div>
+    </div>
   </section>
 </main>
+
+<div class="overlay hidden" id="overlay" role="dialog" aria-modal="true" aria-labelledby="pvTitle">
+  <div class="overlay-inner">
+    <div class="overlay-head">
+      <h3 id="pvTitle">Schedule preview</h3>
+      <div class="acts">
+        <button id="closePreview">Back to editing</button>
+        <button class="primary" id="download2">Download .ewsx</button>
+      </div>
+    </div>
+    <div id="pvBody"></div>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
@@ -84,7 +158,8 @@
 (function () {
   var C = window.EWCore;
   var $ = function (id) { return document.getElementById(id); };
-  var songs = [];   // {title, author, text}
+  var items = [];   // {id, kind: 'section'|'song', title, author, text}
+  var nextId = 1;
   var docName = 'Schedule';
   var sqlReady = initSqlJs({ locateFile: function (f) { return 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/' + f; } });
   var templateReady = fetch('template.db').then(function (r) {
@@ -92,85 +167,203 @@
     return r.arrayBuffer();
   });
 
-  function status(msg, err) { var s = $('status'); s.textContent = msg || ''; s.className = 'status' + (err ? ' err' : ''); }
-  function perSlide() { return +$('perSlide').value; }
-  function slidesOf(song) { return C.toSlides(C.textToStanzas(song.text), perSlide()); }
+  function status(msg, kind) { var s = $('status'); s.textContent = msg || ''; s.className = 'status' + (kind ? ' ' + kind : ''); }
+  function escapeHtml(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
-  function escapeHtml(s) { return s.replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function slidesOf(item) {
+    if (item.kind === 'section') return [{ label: '', lines: [item.title || 'Untitled'], title: true }];
+    return C.toSlides(C.textToParts(item.text), +$('perSlide').value, +$('maxChars').value || Infinity);
+  }
 
-  function renderSlides(el, song) {
-    el.innerHTML = slidesOf(song).map(function (lines) {
-      return '<div class="slide">' + lines.map(escapeHtml).join('<br>') + '</div>';
-    }).join('');
+  function slideHtml(s) {
+    return '<div class="slide-wrap"><div class="slide-label">' + escapeHtml(s.label || '') + '</div>' +
+      '<div class="slide' + (s.title ? ' title' : '') + '">' + s.lines.map(escapeHtml).join('<br>') + '</div></div>';
+  }
+
+  function fromParsed(list) {
+    return list.map(function (it) {
+      return { id: nextId++, kind: it.kind, title: it.title || '', author: it.author || '', text: C.partsToText(it.parts || []) };
+    }).filter(function (it) { return it.kind === 'section' ? it.title : it.text.trim(); });
+  }
+
+  // ---------- schedule sidebar ----------
+
+  var dragId = null;
+  function renderSchedule() {
+    var ul = $('schedList');
+    ul.innerHTML = '';
+    items.forEach(function (it) {
+      var li = document.createElement('li');
+      li.className = 'sched-item' + (it.kind === 'section' ? ' section' : '');
+      li.draggable = true;
+      li.dataset.id = it.id;
+      var n = it.kind === 'song' ? slidesOf(it).length : '';
+      li.innerHTML = '<span class="grip" aria-hidden="true">⋮⋮</span><span class="name">' + escapeHtml(it.title || 'Untitled') + '</span><span class="count">' + n + '</span>';
+      li.title = 'Drag to reorder · click to edit';
+      li.onclick = function () {
+        var card = document.querySelector('.card[data-id="' + it.id + '"]');
+        if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'start' }); card.classList.add('flash'); setTimeout(function () { card.classList.remove('flash'); }, 900); }
+      };
+      li.addEventListener('dragstart', function (e) { dragId = it.id; li.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(it.id)); });
+      li.addEventListener('dragend', function () { dragId = null; render(); });
+      li.addEventListener('dragover', function (e) {
+        if (dragId === null || dragId === it.id) return;
+        e.preventDefault();
+        var r = li.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2;
+        li.classList.toggle('drop-after', after); li.classList.toggle('drop-before', !after);
+      });
+      li.addEventListener('dragleave', function () { li.classList.remove('drop-after', 'drop-before'); });
+      li.addEventListener('drop', function (e) {
+        e.preventDefault();
+        var after = li.classList.contains('drop-after');
+        var from = items.findIndex(function (x) { return x.id === dragId; });
+        if (from < 0) return;
+        var moved = items.splice(from, 1)[0];
+        var to = items.findIndex(function (x) { return x.id === it.id; }) + (after ? 1 : 0);
+        items.splice(to, 0, moved);
+        dragId = null;
+        render();
+      });
+      ul.appendChild(li);
+    });
+  }
+
+  // ---------- editor cards ----------
+
+  function move(i, d) {
+    var j = i + d;
+    if (j < 0 || j >= items.length) return;
+    items.splice(j, 0, items.splice(i, 1)[0]);
+    render();
+  }
+
+  function renderCards() {
+    var box = $('cards');
+    box.innerHTML = '';
+    items.forEach(function (it, i) {
+      var div = document.createElement('div');
+      div.className = 'card' + (it.kind === 'section' ? ' section' : '');
+      div.dataset.id = it.id;
+      var tools = '<div class="tools"><button class="icon up" aria-label="Move up" title="Move up">↑</button>' +
+        '<button class="icon down" aria-label="Move down" title="Move down">↓</button>' +
+        '<button class="icon danger del" aria-label="Remove" title="Remove">✕</button></div>';
+      if (it.kind === 'section') {
+        div.innerHTML = '<div class="card-head"><span class="kind">Title slide</span>' +
+          '<input type="text" class="title" placeholder="e.g. Praise" aria-label="Title slide text">' + tools + '</div>' +
+          '<div class="slides" style="max-width:320px"></div>';
+      } else {
+        div.innerHTML = '<div class="card-head"><span class="kind">Song</span>' +
+          '<input type="text" class="title" placeholder="Song title" aria-label="Song title">' +
+          '<input type="text" class="author" placeholder="Artist (optional)" aria-label="Artist">' + tools + '</div>' +
+          '<div class="cols"><textarea aria-label="Lyrics"></textarea><div class="slides"></div></div>';
+      }
+      var title = div.querySelector('.title'), sl = div.querySelector('.slides');
+      var refresh = function () { sl.innerHTML = slidesOf(it).map(slideHtml).join(''); };
+      title.value = it.title;
+      title.oninput = function () { it.title = title.value; if (it.kind === 'section') refresh(); renderSchedule(); updateSummary(); };
+      if (it.kind === 'song') {
+        var author = div.querySelector('.author'), ta = div.querySelector('textarea');
+        author.value = it.author; ta.value = it.text;
+        author.oninput = function () { it.author = author.value; };
+        ta.oninput = function () { it.text = ta.value; refresh(); renderSchedule(); updateSummary(); };
+      }
+      div.querySelector('.up').onclick = function () { move(i, -1); };
+      div.querySelector('.down').onclick = function () { move(i, 1); };
+      div.querySelector('.del').onclick = function () { items.splice(i, 1); render(); };
+      refresh();
+      box.appendChild(div);
+    });
   }
 
   function updateSummary() {
-    var n = songs.reduce(function (a, s) { return a + slidesOf(s).length; }, 0);
-    $('summary').textContent = songs.length + ' song' + (songs.length === 1 ? '' : 's') + ' · ' + n + ' slides';
+    var songs = items.filter(function (x) { return x.kind === 'song'; }).length;
+    var n = items.reduce(function (a, s) { return a + slidesOf(s).length; }, 0);
+    $('summary').textContent = songs + ' song' + (songs === 1 ? '' : 's') + ' · ' + n + ' slides';
   }
 
   function render() {
-    var box = $('songs');
-    box.innerHTML = '';
-    songs.forEach(function (song, i) {
-      var div = document.createElement('div');
-      div.className = 'song';
-      div.innerHTML =
-        '<div class="song-head"><span class="num">' + (i + 1) + '.</span>' +
-        '<input type="text" class="title" placeholder="Song title" aria-label="Song title">' +
-        '<input type="text" class="author" placeholder="Artist (optional)" aria-label="Artist">' +
-        '<div class="tools"><button class="icon up" title="Move up" aria-label="Move up">↑</button>' +
-        '<button class="icon down" title="Move down" aria-label="Move down">↓</button>' +
-        '<button class="icon danger del" title="Remove song" aria-label="Remove song">✕</button></div></div>' +
-        '<div class="cols"><textarea aria-label="Lyrics"></textarea><div class="slides"></div></div>';
-      var title = div.querySelector('.title'), author = div.querySelector('.author'), ta = div.querySelector('textarea'), sl = div.querySelector('.slides');
-      title.value = song.title; author.value = song.author; ta.value = song.text;
-      title.oninput = function () { song.title = title.value; };
-      author.oninput = function () { song.author = author.value; };
-      ta.oninput = function () { song.text = ta.value; renderSlides(sl, song); updateSummary(); };
-      div.querySelector('.up').onclick = function () { if (i > 0) { songs.splice(i - 1, 0, songs.splice(i, 1)[0]); render(); } };
-      div.querySelector('.down').onclick = function () { if (i < songs.length - 1) { songs.splice(i + 1, 0, songs.splice(i, 1)[0]); render(); } };
-      div.querySelector('.del').onclick = function () { songs.splice(i, 1); render(); };
-      renderSlides(sl, song);
-      box.appendChild(div);
-    });
-    $('editor').classList.toggle('empty', false);
+    $('editor').classList.remove('hidden');
+    renderSchedule();
+    renderCards();
     updateSummary();
+  }
+
+  // ---------- preview ----------
+
+  function openPreview() {
+    $('pvBody').innerHTML = items.map(function (it, i) {
+      var slides = slidesOf(it);
+      return '<div class="pv-item"><h4>' + (i + 1) + '. ' + escapeHtml(it.title || 'Untitled') +
+        (it.author ? ' <small>' + escapeHtml(it.author) + '</small>' : '') +
+        ' <small>' + slides.length + ' slide' + (slides.length === 1 ? '' : 's') + '</small></h4>' +
+        '<div class="pv-slides">' + slides.map(slideHtml).join('') + '</div></div>';
+    }).join('') || '<p class="hint">The schedule is empty.</p>';
+    $('overlay').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    $('closePreview').focus();
+  }
+  function closePreview() {
+    $('overlay').classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  // ---------- loading a document ----------
+
+  function structureWithAi(lines) {
+    return fetch('api/structure', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lines: lines })
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok || !data.items) throw new Error(data.error || 'AI clean-up is unavailable.');
+        return data.items;
+      });
+    });
   }
 
   function loadFile(file) {
     if (!file) return;
-    if (!/\.docx$/i.test(file.name)) { status('Please choose a .docx Word file. (Older .doc files need to be saved as .docx first.)', true); return; }
-    status('Reading ' + file.name + '…');
+    if (!/\.docx$/i.test(file.name)) { status('Please choose a .docx Word file. (Older .doc files need to be saved as .docx first.)', 'err'); return; }
     docName = file.name.replace(/\.docx$/i, '');
+    var useAi = $('useAi').checked;
+    status(useAi ? 'Reading ' + file.name + ' and sorting it with AI. This can take up to a minute…' : 'Reading ' + file.name + '…', 'busy');
     JSZip.loadAsync(file).then(function (zip) {
       var doc = zip.file('word/document.xml');
       if (!doc) throw new Error('That file does not look like a Word document.');
       return doc.async('string');
     }).then(function (xml) {
-      var parsed = C.parseLines(C.docxXmlToLines(xml));
-      if (!parsed.length) throw new Error('No lyrics found in that document.');
-      songs = parsed.map(function (s) { return { title: s.title, author: s.author, text: C.stanzasToText(s.stanzas) }; });
+      var lines = C.docxXmlToLines(xml);
+      while (lines.length && !lines[lines.length - 1]) lines.pop();
+      if (!lines.some(Boolean)) throw new Error('No text found in that document.');
+      var basic = function (note) {
+        items = fromParsed(C.parseLines(lines));
+        return note;
+      };
+      if (!useAi) return basic('');
+      return structureWithAi(lines).then(function (list) {
+        items = fromParsed(list);
+        return '';
+      }).catch(function (e) {
+        return basic(e.message + ' Used the basic rules instead, so check the songs below.');
+      });
+    }).then(function (note) {
+      if (!items.length) throw new Error('No lyrics found in that document.');
       render();
-      status('Found ' + songs.length + ' songs in ' + file.name + '.');
-    }).catch(function (e) { status(e.message, true); });
+      var songs = items.filter(function (x) { return x.kind === 'song'; }).length;
+      status(note || ('Found ' + songs + ' songs in ' + file.name + '. Check them below, then download.'), note ? 'err' : '');
+    }).catch(function (e) { status(e.message, 'err'); });
   }
 
-  $('file').onchange = function (e) { loadFile(e.target.files[0]); e.target.value = ''; };
-  var drop = $('drop');
-  ['dragenter', 'dragover'].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
-  ['dragleave', 'drop'].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
-  drop.addEventListener('drop', function (e) { loadFile(e.dataTransfer.files[0]); });
+  // ---------- download ----------
 
-  $('perSlide').onchange = render;
-  $('addSong').onclick = function () { songs.push({ title: 'New song', author: '', text: '' }); render(); };
-
-  $('download').onclick = function () {
-    var list = songs.map(function (s) {
-      return { title: s.title.trim() || 'Untitled', author: s.author.trim(), slides: slidesOf(s) };
-    }).filter(function (s) { return s.slides.length; });
-    if (!list.length) { status('Add some lyrics first.', true); return; }
-    status('Building schedule…');
+  function download() {
+    var list = items.map(function (it) {
+      return { title: (it.title || '').trim() || 'Untitled', author: it.kind === 'song' ? (it.author || '').trim() : '',
+        slides: slidesOf(it).map(function (s) { return s.lines; }) };
+    }).filter(function (p) { return p.slides.length; });
+    if (!list.length) { status('Add something to the schedule first.', 'err'); return; }
+    status('Building schedule…', 'busy');
     Promise.all([sqlReady, templateReady]).then(function (r) {
       var db = C.buildDatabase(r[0], new Uint8Array(r[1]), list);
       return C.buildEwsx(JSZip, db).generateAsync({ type: 'blob', compression: 'DEFLATE' });
@@ -180,9 +373,27 @@
       a.download = docName + '.ewsx';
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
-      status('Downloaded ' + a.download + ' with ' + list.length + ' songs. Open it in EasyWorship with File → Open Schedule.');
-    }).catch(function (e) { status('Could not build the schedule: ' + e.message, true); });
-  };
+      status('Downloaded ' + a.download + ' with ' + list.length + ' items. Open it in EasyWorship with File → Open Schedule.');
+    }).catch(function (e) { status('Could not build the schedule: ' + e.message, 'err'); });
+  }
+
+  // ---------- wiring ----------
+
+  $('file').onchange = function (e) { loadFile(e.target.files[0]); e.target.value = ''; };
+  var drop = $('drop');
+  ['dragenter', 'dragover'].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop', function (e) { loadFile(e.dataTransfer.files[0]); });
+
+  $('perSlide').onchange = render;
+  $('maxChars').oninput = render;
+  $('addSong').onclick = function () { items.push({ id: nextId++, kind: 'song', title: 'New song', author: '', text: '' }); render(); };
+  $('addTitle').onclick = function () { items.push({ id: nextId++, kind: 'section', title: 'Special Song', author: '', text: '' }); render(); };
+  $('previewBtn').onclick = openPreview;
+  $('closePreview').onclick = closePreview;
+  $('download').onclick = download;
+  $('download2').onclick = function () { closePreview(); download(); };
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('overlay').classList.contains('hidden')) closePreview(); });
 })();
 </script>
 </body>
