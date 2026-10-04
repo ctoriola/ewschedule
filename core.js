@@ -162,6 +162,13 @@
     return parts;
   }
 
+  // Capitalise the first letter of a line (after any brackets/quotes or a
+  // "Leader:"/"Choir:" prefix).
+  function capitalise(line) {
+    return line.replace(/^((?:leader|choir|all|congregation)\s*:\s*)?([^A-Za-z0-9\u00C0-\uFFFF]*)([a-z\u00DF-\u00FF\u0100-\u024F\u1E00-\u1EFF])/i,
+      function (_, pre, lead, ch) { return (pre ? pre.charAt(0).toUpperCase() + pre.slice(1) : '') + lead + ch.toUpperCase(); });
+  }
+
   // Split parts into slides of up to perSlide lines. A "(translation)" line
   // stays on the same slide as the line before it, and any line longer than
   // maxChars gets a slide to itself (with its translation, if any).
@@ -170,7 +177,7 @@
     maxChars = maxChars || Infinity;
     parts.forEach(function (p) {
       var units = [];
-      p.lines.forEach(function (line) {
+      p.lines.map(capitalise).forEach(function (line) {
         var prev = units[units.length - 1];
         if (/^\(.*\)$/.test(line) && prev && prev.lines.length === 1 && !/^\(.*\)$/.test(prev.lines[0])) {
           prev.lines.push(line);
@@ -334,7 +341,7 @@
 
   var api = {
     docxXmlToLines: docxXmlToLines, parseLines: parseLines,
-    partsToText: partsToText, textToParts: textToParts, toSlides: toSlides,
+    partsToText: partsToText, capitalise: capitalise, textToParts: textToParts, toSlides: toSlides,
     slideRtf: slideRtf, buildDatabase: buildDatabase, buildEwsx: buildEwsx
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -317,7 +317,7 @@
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (data) {
         if (!r.ok || !data.items) throw new Error(data.error || 'AI clean-up is unavailable.');
-        return data.items;
+        return data;
       });
     });
   }
@@ -341,9 +341,9 @@
         return note;
       };
       if (!useAi) return basic('');
-      return structureWithAi(lines).then(function (list) {
-        items = fromParsed(list);
-        return '';
+      return structureWithAi(lines).then(function (data) {
+        items = fromParsed(data.items);
+        return data.coverage < 0.97 ? 'The AI may have left out a few lines. Compare the songs below with your document before downloading.' : '';
       }).catch(function (e) {
         return basic(e.message + ' Used the basic rules instead, so check the songs below.');
       });
