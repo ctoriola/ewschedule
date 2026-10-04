@@ -99,7 +99,7 @@ export default async function handler(req, res) {
     const built = build(raw.list, lines);
     built.debug = raw.debug;
     if (!best || built.coverage > best.coverage) best = built;
-    if (built.coverage >= 0.97) break;
+    if (built.coverage >= 0.9) break;
   }
 
   if (!best) {
@@ -243,8 +243,10 @@ function build(list, lines) {
     const t = cleanTitle(l).toLowerCase();
     return headings.has(t) || headings.has(t.replace(/\s+by\s+.*$/, '')) || headings.has(t.replace(/\s+lyrics$/, ''));
   };
-  const isBoundary = (l) => !!l && (/^\d{1,3}[.)]?$/.test(l) || /^lyrics?\s*[:-]/i.test(l) || isHeading(l));
-  const isLyric = (l) => !!l && !META.test(l) && !isLabelLine(l) && !isHeading(l);
+  // short ALL-CAPS lines are headings, not lyrics
+  const isCapsHeading = (l) => /\p{Lu}/u.test(l) && !/\p{Ll}/u.test(l) && l.split(/\s+/).length <= 4;
+  const isBoundary = (l) => !!l && (/^\d{1,3}[.)]?$/.test(l) || /^lyrics?\s*[:-]/i.test(l) || isHeading(l) || isCapsHeading(l));
+  const isLyric = (l) => !!l && !META.test(l) && !isLabelLine(l) && !isHeading(l) && !isCapsHeading(l);
   let lyric = 0;
   let placed = 0;
   lines.forEach((l, i) => {
@@ -264,16 +266,20 @@ function build(list, lines) {
     if (!block) {
       block = { label: '', lines: [], at: n };
       let ownerIndex = -1;
+      let nextIndex = -1;
       items.forEach((it, k) => {
-        if (it.kind === 'song' && it.parts.length && it.parts[0].at < n) ownerIndex = k;
+        if (it.kind !== 'song' || !it.parts.length) return;
+        if (it.parts[0].at < n) ownerIndex = k;
+        else if (nextIndex < 0) nextIndex = k;
       });
       const owner = items[ownerIndex];
-      const split = !owner || lines.slice(lastLine(owner), n - 1).some(isBoundary);
-      if (split) {
-        const song = { kind: 'song', title: '', author: '', parts: [block] };
-        items.splice(ownerIndex + 1, 0, song);
+      const next = items[nextIndex];
+      if (owner && !lines.slice(lastLine(owner), n - 1).some(isBoundary)) {
+        owner.parts.push(block); // continues the previous song
+      } else if (next && !lines.slice(n, next.parts[0].at - 1).some(isBoundary)) {
+        next.parts.push(block); // first lines of the next song
       } else {
-        owner.parts.push(block);
+        items.splice(ownerIndex + 1, 0, { kind: 'song', title: '', author: '', parts: [block] });
       }
     }
     block.lines.push(l);
@@ -287,7 +293,7 @@ function build(list, lines) {
       .filter((p) => p.lines.length);
     // title only (lyrics not in the document): one slide with the title
     if (!it.parts.length) it.parts.push({ label: '', lines: [capitalise(it.title)] });
-    it.title = capitalise(it.title || cleanTitle(it.parts[0].lines[0]));
+    it.title = titleCase(it.title || cleanTitle(it.parts[0].lines[0]));
   }
   return { items, coverage: lyric ? placed / lyric : 1 };
 }
@@ -324,6 +330,11 @@ function cleanLabel(label) {
   const base = LABELS[m[1]] || (m[1] === 'verse' ? 'Verse' : null);
   if (base) return m[2] ? base + ' ' + m[2] : base === 'Verse' ? 'Verse 1' : base;
   return l.replace(/\b\p{L}/gu, (c) => c.toUpperCase());
+}
+
+// Capitalise each word, leaving the rest of the word as written.
+function titleCase(t) {
+  return String(t).replace(/(^|[\s(\-"\u201C])(\p{Ll})/gu, (_, a, b) => a + b.toUpperCase());
 }
 
 function cleanTitle(t) {
