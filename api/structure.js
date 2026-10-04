@@ -104,10 +104,6 @@ export default async function handler(req, res) {
     res.status(lastError.status || 502).json({ error: lastError.message });
     return;
   }
-  if (best.coverage < 0.85) {
-    res.status(422).json({ error: 'The AI result left out too many lyrics.' });
-    return;
-  }
   res.status(200).json({ items: best.items, coverage: Math.round(best.coverage * 100) / 100 });
 }
 
@@ -219,41 +215,79 @@ function build(list, lines) {
       const to = Math.min(lines.length, Math.floor(+p.to));
       if (!(from <= to)) continue;
       const label = cleanLabel(p.label);
-      // blank lines inside a range split it into separate slides groups
-      let cur = [];
+      // blank or label lines inside a range split it into separate parts
+      let cur = null;
       for (let n = from; n <= to; n++) {
         const text = lines[n - 1];
-        if (!text || isLabelLine(text)) {
-          if (cur.length) parts.push({ label, lines: cur });
-          cur = [];
+        if (!text || isLabelLine(text) || used.has(n)) {
+          cur = null;
           continue;
         }
         used.add(n);
-        const line = cleanLine(text);
-        if (line) cur.push(line);
+        if (!cur) parts.push((cur = { label, lines: [], at: n }));
+        cur.lines.push(text);
       }
-      if (cur.length) parts.push({ label, lines: cur });
     }
     let title = cleanTitle(str(it.title)).replace(/\s+lyrics$/i, '');
-    if (!parts.length) {
-      // title only (lyrics not in the document): one slide with the title
-      if (!title) continue;
-      parts.push({ label: '', lines: [capitalise(title)] });
-    }
-    title = title || cleanTitle(parts[0].lines[0]);
-    items.push({ kind: 'song', title: capitalise(title), author: cleanTitle(str(it.author)), parts });
+    if (!parts.length && !title) continue;
+    items.push({ kind: 'song', title, author: cleanTitle(str(it.author)), parts });
   }
 
-  // Share of lyric-looking lines that ended up in a song.
-  let lyric = 0;
-  let covered = 0;
+  // Lyric-looking lines the model did not place: attach each block to the
+  // song it sits in, or make it a song of its own if a song number or
+  // heading separates it from the previous song.
   const headings = new Set(items.map((it) => it.title.toLowerCase()));
+  const isHeading = (l) => {
+    const t = cleanTitle(l).toLowerCase();
+    return headings.has(t) || headings.has(t.replace(/\s+by\s+.*$/, '')) || headings.has(t.replace(/\s+lyrics$/, ''));
+  };
+  const isBoundary = (l) => !!l && (/^\d{1,3}[.)]?$/.test(l) || /^lyrics?\s*[:-]/i.test(l) || isHeading(l));
+  const isLyric = (l) => !!l && !META.test(l) && !isLabelLine(l) && !isHeading(l);
+  let lyric = 0;
+  let placed = 0;
   lines.forEach((l, i) => {
-    if (!l || META.test(l) || headings.has(cleanTitle(l).toLowerCase())) return;
+    if (!isLyric(l)) return;
     lyric++;
-    if (used.has(i + 1)) covered++;
+    if (used.has(i + 1)) placed++;
   });
-  return { items, coverage: lyric ? covered / lyric : 1 };
+
+  const lastLine = (song) => Math.max(...song.parts.map((p) => p.at + p.lines.length - 1));
+  let block = null;
+  lines.forEach((l, i) => {
+    const n = i + 1;
+    if (!isLyric(l) || used.has(n)) {
+      block = null;
+      return;
+    }
+    if (!block) {
+      block = { label: '', lines: [], at: n };
+      let ownerIndex = -1;
+      items.forEach((it, k) => {
+        if (it.kind === 'song' && it.parts.length && it.parts[0].at < n) ownerIndex = k;
+      });
+      const owner = items[ownerIndex];
+      const split = !owner || lines.slice(lastLine(owner), n - 1).some(isBoundary);
+      if (split) {
+        const song = { kind: 'song', title: '', author: '', parts: [block] };
+        items.splice(ownerIndex + 1, 0, song);
+      } else {
+        owner.parts.push(block);
+      }
+    }
+    block.lines.push(l);
+  });
+
+  for (const it of items) {
+    if (it.kind !== 'song') continue;
+    it.parts.sort((a, b) => a.at - b.at);
+    it.parts = it.parts
+      .map((p) => ({ label: p.label, lines: p.lines.map(cleanLine).filter(Boolean) }))
+      .filter((p) => p.lines.length);
+    // title only (lyrics not in the document): one slide with the title
+    if (!it.parts.length) it.parts.push({ label: '', lines: [capitalise(it.title)] });
+    it.title = capitalise(it.title || cleanTitle(it.parts[0].lines[0]));
+  }
+  return { items, coverage: lyric ? placed / lyric : 1 };
 }
 
 function isLabelLine(l) {
