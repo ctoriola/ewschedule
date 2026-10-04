@@ -5,6 +5,10 @@
 const MAX_CHARS = 60000;
 
 const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
+// Groq counts input + max_completion_tokens against the tokens-per-minute
+// limit (8000 on the free tier). Set GROQ_TPM higher on a paid tier.
+const TPM = +process.env.GROQ_TPM || 8000;
+const EFFORT = process.env.GROQ_REASONING || 'low';
 
 const SYSTEM = `You turn the text of a church service lyrics document into a running order for EasyWorship projection.
 
@@ -129,6 +133,10 @@ export default async function handler(req, res) {
 }
 
 async function callGroq(text) {
+  // rough token estimate (~3.2 chars per token) plus a safety margin
+  const inputTokens = Math.ceil((SYSTEM.length + text.length) / 3.2) + 200;
+  const maxTokens = Math.min(32768, TPM - inputTokens);
+  if (maxTokens < 1500) throw httpError(413, 'That document is too long for AI clean-up on the current Groq plan.');
   let r;
   try {
     r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -139,8 +147,8 @@ async function callGroq(text) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_completion_tokens: 32768,
-        reasoning_effort: 'medium',
+        max_completion_tokens: maxTokens,
+        reasoning_effort: EFFORT,
         temperature: 0.2,
         response_format: { type: 'json_object' },
         messages: [
