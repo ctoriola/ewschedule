@@ -6,39 +6,6 @@ const MAX_CHARS = 60000;
 
 const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 
-const SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['items'],
-  properties: {
-    items: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['kind', 'title', 'author', 'parts'],
-        properties: {
-          kind: { type: 'string', enum: ['section', 'song'] },
-          title: { type: 'string' },
-          author: { type: 'string' },
-          parts: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['label', 'lines'],
-              properties: {
-                label: { type: 'string' },
-                lines: { type: 'array', items: { type: 'string' } },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-};
-
 const SYSTEM = `You turn the text of a church service lyrics document into a running order for EasyWorship projection.
 
 The document arrives one paragraph per line, inside <document> tags. Layouts vary: numbered or unnumbered songs, "Lyrics: Title by Artist" headers, ALL-CAPS titles, verse labels with or without brackets, translations in parentheses, Leader/Choir call-and-response, dates and notes.
@@ -108,6 +75,8 @@ Correct output:
  {"label":"Call & Response","lines":["Leader: We speak peace over Nigeria!","Choir: We speak peace in our land"]}]}
 ]}
 
+Reply with only the JSON object, no other text.
+
 Before answering, check: every lyric line from the document appears exactly once per occurrence, no words were changed, and each numbered song is its own item.`;
 
 export default async function handler(req, res) {
@@ -171,12 +140,9 @@ async function callGroq(text) {
       body: JSON.stringify({
         model: MODEL,
         max_completion_tokens: 32768,
-        reasoning_effort: 'high',
+        reasoning_effort: 'medium',
         temperature: 0.2,
-        response_format: {
-          type: 'json_schema',
-          json_schema: { name: 'running_order', strict: true, schema: SCHEMA },
-        },
+        response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: SYSTEM },
           { role: 'user', content: '<document>\n' + text + '\n</document>' },
@@ -214,13 +180,45 @@ async function callGroq(text) {
   const choice = data.choices && data.choices[0];
   if (!choice) throw httpError(502, 'The AI returned an unexpected response.');
   if (choice.finish_reason === 'length') throw httpError(413, 'That document is too long for AI clean-up.');
-  try {
-    const parsed = JSON.parse(choice.message.content);
-    if (!Array.isArray(parsed.items)) throw new Error();
-    return parsed;
-  } catch {
-    throw httpError(502, 'The AI returned an unexpected response.');
+  const items = parseItems(choice.message && choice.message.content);
+  if (!items) {
+    console.error('Groq returned unusable JSON', String(choice.message && choice.message.content).slice(0, 2000));
+    const e = httpError(502, 'The AI returned an unexpected response.');
+    e.retry = true;
+    throw e;
   }
+  return { items };
+}
+
+// Accept the model's JSON even if it is wrapped in text or code fences, and
+// coerce it into the shape the app expects.
+function parseItems(content) {
+  if (typeof content !== 'string') return null;
+  const start = content.indexOf('{');
+  const end = content.lastIndexOf('}');
+  if (start < 0 || end <= start) return null;
+  let data;
+  try {
+    data = JSON.parse(content.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+  const list = Array.isArray(data) ? data : data && Array.isArray(data.items) ? data.items : null;
+  if (!list) return null;
+  const str = (v) => (typeof v === 'string' ? v : v == null ? '' : String(v));
+  return list
+    .filter((it) => it && typeof it === 'object')
+    .map((it) => ({
+      kind: it.kind === 'section' ? 'section' : 'song',
+      title: str(it.title),
+      author: str(it.author),
+      parts: (Array.isArray(it.parts) ? it.parts : [])
+        .filter((p) => p && typeof p === 'object')
+        .map((p) => ({
+          label: str(p.label),
+          lines: (Array.isArray(p.lines) ? p.lines : typeof p.lines === 'string' ? p.lines.split('\n') : []).map(str),
+        })),
+    }));
 }
 
 function httpError(status, message) {
