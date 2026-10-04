@@ -132,14 +132,15 @@ export default async function handler(req, res) {
   }
 
   let best = null;
-  for (const effort of ['high', 'high']) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
     let result;
     try {
-      result = await callGroq(text, effort);
+      result = await callGroq(text);
     } catch (err) {
-      if (best) break;
-      res.status(err.status || 502).json({ error: err.message });
-      return;
+      lastError = err;
+      if (err.retry) continue;
+      break;
     }
     const items = clean(result.items);
     const score = coverage(lines, items);
@@ -147,6 +148,10 @@ export default async function handler(req, res) {
     if (score >= 0.97) break;
   }
 
+  if (!best) {
+    res.status(lastError.status || 502).json({ error: lastError.message });
+    return;
+  }
   if (best.score < 0.85) {
     res.status(422).json({ error: 'The AI result left out too many lyrics.' });
     return;
@@ -154,7 +159,7 @@ export default async function handler(req, res) {
   res.status(200).json({ items: best.items, coverage: Math.round(best.score * 100) / 100 });
 }
 
-async function callGroq(text, effort) {
+async function callGroq(text) {
   let r;
   try {
     r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -166,7 +171,7 @@ async function callGroq(text, effort) {
       body: JSON.stringify({
         model: MODEL,
         max_completion_tokens: 32768,
-        reasoning_effort: effort,
+        reasoning_effort: 'high',
         temperature: 0.2,
         response_format: {
           type: 'json_schema',
@@ -179,10 +184,26 @@ async function callGroq(text, effort) {
       }),
     });
   } catch {
-    throw httpError(502, 'Could not reach the AI service.');
+    const e = httpError(502, 'Could not reach the AI service.');
+    e.retry = true;
+    throw e;
   }
-  if (r.status === 429) throw httpError(429, 'The AI is busy right now. Try again in a minute.');
-  if (!r.ok) throw httpError(502, 'The AI service returned an error (' + r.status + ').');
+  if (!r.ok) {
+    // Keep Groq's own explanation: it is the only way to tell what went wrong.
+    let detail = '';
+    try {
+      const body = await r.json();
+      detail = (body.error && (body.error.message || body.error.code)) || '';
+      console.error('Groq error', r.status, JSON.stringify(body.error || body).slice(0, 2000));
+    } catch {
+      console.error('Groq error', r.status);
+    }
+    if (r.status === 429) throw httpError(429, 'The AI is busy right now (rate limit). Try again in a minute.');
+    const e = httpError(502, 'The AI service returned an error (' + r.status + (detail ? ': ' + detail.slice(0, 300) : '') + ').');
+    // 400s here are usually a failed JSON generation, and 5xx are transient: worth one retry.
+    e.retry = r.status === 400 || r.status >= 500;
+    throw e;
+  }
 
   let data;
   try {
