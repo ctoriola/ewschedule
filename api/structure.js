@@ -9,7 +9,7 @@ const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 // Groq counts input + max_completion_tokens against the tokens-per-minute
 // limit (8000 on the free tier). Set GROQ_TPM higher on a paid tier.
 const TPM = +process.env.GROQ_TPM || 8000;
-const EFFORT = process.env.GROQ_REASONING || 'medium';
+const EFFORT = process.env.GROQ_REASONING || 'low';
 
 const SYSTEM = `You work out the running order of a church service lyrics document for EasyWorship projection.
 
@@ -33,6 +33,7 @@ Part labels, one per block (a block = consecutive non-empty lines):
 - Allowed labels: "Verse 1", "Verse 2", ..., "Chorus", "Pre-Chorus", "Bridge" (or "Bridge 1", "Bridge 2"...), "Refrain" (or numbered), "Intro", "Outro", "Tag", "Vamp", "Call & Response".
 - When unlabelled: a block that repeats in the song, or is the short hook, is "Chorus" each time it appears; Call:/Resp: or Leader:/Choir: blocks are "Call & Response"; other blocks are "Verse 1", "Verse 2"... in order. A song with a single block uses "".
 - Every lyric line of the song must be inside exactly one part. Do not skip blocks.
+- Cover the WHOLE document, to the last line: every song and section from the first line to the end.
 
 Example document:
 1| 04/10/2026
@@ -95,7 +96,8 @@ export default async function handler(req, res) {
       if (err.retry) continue;
       break;
     }
-    const built = build(raw, lines);
+    const built = build(raw.list, lines);
+    built.debug = raw.debug;
     if (!best || built.coverage > best.coverage) best = built;
     if (built.coverage >= 0.97) break;
   }
@@ -104,7 +106,7 @@ export default async function handler(req, res) {
     res.status(lastError.status || 502).json({ error: lastError.message });
     return;
   }
-  res.status(200).json({ items: best.items, coverage: Math.round(best.coverage * 100) / 100 });
+  res.status(200).json({ items: best.items, coverage: Math.round(best.coverage * 100) / 100, debug: best.debug });
 }
 
 async function callGroq(numbered) {
@@ -170,7 +172,7 @@ async function callGroq(numbered) {
     e.retry = true;
     throw e;
   }
-  return list;
+  return { list, debug: { finish: choice.finish_reason, usage: data.usage && { prompt: data.usage.prompt_tokens, completion: data.usage.completion_tokens } } };
 }
 
 function httpError(status, message) {
