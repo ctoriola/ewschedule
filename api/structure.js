@@ -21,16 +21,16 @@ Return {"items": [...]} in document order. Each item is one of:
    Use for headings that group songs in the service: Praise, Worship, Special Song(s), Ministration, Thanksgiving, Offering, Hymn(s), Opening, Closing, Altar Call, Communion and similar. Title Case ("PRAISE" -> "Praise", "SPECIAL SONGS" -> "Special Songs"). Never put lyrics in a section.
 
 2. A song: {"kind":"song","title":"...","author":"...","parts":[{"label":"...","lines":["...", "..."]}]}
-   - title: the song's name. From "Lyrics: <title> by <artist>" take <title>. From an ALL-CAPS heading above lyrics, use it in Title Case. Otherwise use a short phrase from the first line (max ~6 words), no trailing punctuation.
+   - title: the song's name in Title Case. From "Lyrics: <title> by <artist>" or "<title> by <artist>" take <title>. A line like "<title> Lyrics" or "<title> lyrics" is a title: drop the word "Lyrics". From an ALL-CAPS heading above lyrics, use it in Title Case. Otherwise use a short phrase from the first line (max ~6 words), no trailing punctuation.
    - author: the artist after "by", otherwise "".
-   - parts: every block of the song, in order.
+   - parts: every block of the song, in order. If the document gives only a song's title (e.g. "2. Awesome God by Kirk Franklin.") with no lyrics, still output the song with parts: [].
 
 WHERE SONGS START
 A new song starts at: a number like "2." or "3)", a "Lyrics:" line, an ALL-CAPS song heading, or a section heading. Lines after a number belong to that numbered song until the next number/heading. Never merge two numbered songs; never split one song into two.
 
 PART LABELS (be consistent)
-- Use the document's own label if it has one ("[Verse 1]", "Chorus", "Pre-Chorus", "Bridge"...), written exactly as one of: "Verse 1", "Verse 2", ..., "Chorus", "Pre-Chorus", "Bridge", "Refrain", "Intro", "Outro", "Tag", "Vamp", "Call & Response".
-- If unlabelled: a block that appears more than once, or the short repeated hook, is "Chorus"; other blocks are "Verse 1", "Verse 2"... in order; Leader:/Choir: blocks are "Call & Response".
+- Use the document's own label if it has one ("[Verse 1]", "Chorus", "Pre-Chorus", "Bridge"...), written as one of: "Verse 1", "Verse 2", ..., "Chorus", "Pre-Chorus", "Bridge", "Refrain", "Intro", "Outro", "Tag", "Vamp", "Call & Response". Keep numbers the document uses ("Bridge 2", "Refrain 1"); write "[Verse]" as "Verse 1".
+- If unlabelled: a block (or line) that appears more than once in the song, or the short repeated hook, is "Chorus" every time it appears; other blocks are "Verse 1", "Verse 2"... in order; Leader:/Choir: or Call:/Resp: blocks are "Call & Response".
 - A song with only one block gets label "".
 - Blank lines in the document separate blocks. A label line starts a new block. Do not merge blocks or split a block.
 
@@ -39,7 +39,7 @@ LINES
 - Keep the exact words and spelling, especially Nigerian Pidgin, Yoruba, Igbo, Hausa, Efik and other non-English words, and informal spellings like "dey", "don", "wey", "oo", "o". Never translate or "correct" them.
 - Allowed fixes only: trim spaces, collapse doubled spaces/punctuation, fix obvious English misspellings, and capitalise the first letter of each line.
 - Keep a translation in parentheses on its own line directly after the line it translates.
-- Keep "Leader:" and "Choir:" prefixes.
+- Keep "Leader:", "Choir:", "Call:" and "Resp:" prefixes.
 - Remove repeat markers such as "x3", "(x2)", "[3x]", "2ce" and keep the line once.
 
 NOT LYRICS (drop them)
@@ -253,16 +253,15 @@ function capitalise(line) {
 }
 
 function cleanLine(line) {
-  return capitalise(String(line).replace(REPEAT, ' ').replace(/\s+/g, ' ').trim());
+  return capitalise(String(line).replace(REPEAT, ' ').replace(/\s+/g, ' ').replace(/([([])\s+/g, '$1').replace(/\s+([)\]])/g, '$1').trim());
 }
 
 function cleanLabel(label) {
-  const l = String(label || '').replace(/[[\]():]/g, '').trim();
+  const l = String(label || '').replace(/[[\]():]/g, '').replace(/\s+/g, ' ').trim();
   if (!l) return '';
-  const key = l.toLowerCase();
-  if (LABELS[key]) return LABELS[key];
-  const v = key.match(/^verse\s*(\d+)?$/);
-  if (v) return v[1] ? 'Verse ' + v[1] : 'Verse';
+  const m = l.toLowerCase().match(/^(.*?)\s*(\d+)?$/);
+  const base = LABELS[m[1]] || (m[1] === 'verse' ? 'Verse' : null);
+  if (base) return m[2] ? base + ' ' + m[2] : base === 'Verse' ? 'Verse 1' : base;
   return l.replace(/\b\p{L}/gu, (c) => c.toUpperCase());
 }
 
@@ -284,8 +283,13 @@ function clean(items) {
     const parts = (it.parts || [])
       .map((p) => ({ label: cleanLabel(p.label), lines: (p.lines || []).map(cleanLine).filter(Boolean) }))
       .filter((p) => p.lines.length);
-    if (!parts.length) continue;
-    const title = cleanTitle(it.title) || cleanTitle(parts[0].lines[0]);
+    let title = cleanTitle(it.title).replace(/\s+lyrics$/i, '');
+    if (!parts.length) {
+      // title only (lyrics not in the document): one slide with the title
+      if (!title) continue;
+      parts.push({ label: '', lines: [capitalise(title)] });
+    }
+    title = title || cleanTitle(parts[0].lines[0]);
     out.push({ kind: 'song', title: capitalise(title), author: cleanTitle(it.author), parts });
   }
   return out;
