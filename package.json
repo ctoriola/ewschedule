@@ -2,8 +2,7 @@
   "name": "ewschedule",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.131.0"
+  "engines": {
+    "node": ">=20"
   }
 }

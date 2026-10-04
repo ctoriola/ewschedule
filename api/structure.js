@@ -1,9 +1,10 @@
 // POST /api/structure  { lines: string[] }  ->  { items: [...] }
-// Uses Claude to turn the raw text of a lyrics document into a structured
+// Uses an LLM on Groq to turn the raw text of a lyrics document into a structured
 // running order: section title slides plus songs split into labelled parts.
-import Anthropic from '@anthropic-ai/sdk';
 
 const MAX_CHARS = 60000;
+
+const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 
 const SCHEMA = {
   type: 'object',
@@ -59,14 +60,12 @@ Cleaning rules:
 - If a line is very long and clearly two sung phrases joined together, you may split it into two lines at the natural break.
 - Do not invent content and do not drop any lyric line.`;
 
-const client = new Anthropic();
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Use POST' });
     return;
   }
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.GROQ_API_KEY) {
     res.status(503).json({ error: 'AI clean-up is not configured on this server.' });
     return;
   }
@@ -82,37 +81,51 @@ export default async function handler(req, res) {
     return;
   }
 
+  let r;
   try {
-    const stream = client.beta.messages.stream({
-      model: 'claude-opus-5-5',
-      max_tokens: 64000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      thinking: { type: 'adaptive' },
-      output_config: { effort: 'medium', format: { type: 'json_schema', schema: SCHEMA } },
-      system: SYSTEM,
-      messages: [{ role: 'user', content: '<document>\n' + text + '\n</document>' }],
+    r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + process.env.GROQ_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_completion_tokens: 32768,
+        reasoning_effort: 'medium',
+        response_format: {
+          type: 'json_schema',
+          json_schema: { name: 'running_order', strict: true, schema: SCHEMA },
+        },
+        messages: [
+          { role: 'system', content: SYSTEM },
+          { role: 'user', content: '<document>\n' + text + '\n</document>' },
+        ],
+      }),
     });
-    const message = await stream.finalMessage();
+  } catch {
+    res.status(502).json({ error: 'Could not reach the AI service.' });
+    return;
+  }
 
-    if (message.stop_reason === 'refusal') {
-      res.status(422).json({ error: 'The AI declined to process this document.' });
-      return;
-    }
-    if (message.stop_reason === 'max_tokens') {
+  if (r.status === 429) {
+    res.status(429).json({ error: 'The AI is busy right now. Try again in a minute.' });
+    return;
+  }
+  if (!r.ok) {
+    res.status(502).json({ error: 'The AI service returned an error (' + r.status + ').' });
+    return;
+  }
+
+  try {
+    const data = await r.json();
+    const choice = data.choices[0];
+    if (choice.finish_reason === 'length') {
       res.status(413).json({ error: 'That document is too long for AI clean-up.' });
       return;
     }
-    const block = message.content.find((b) => b.type === 'text');
-    const data = JSON.parse(block.text);
-    res.status(200).json(data);
-  } catch (err) {
-    if (err instanceof Anthropic.RateLimitError) {
-      res.status(429).json({ error: 'The AI is busy right now. Try again in a minute.' });
-    } else if (err instanceof Anthropic.APIError) {
-      res.status(502).json({ error: 'The AI service returned an error (' + err.status + ').' });
-    } else {
-      res.status(500).json({ error: 'AI clean-up failed.' });
-    }
+    res.status(200).json(JSON.parse(choice.message.content));
+  } catch {
+    res.status(502).json({ error: 'The AI returned an unexpected response.' });
   }
 }
