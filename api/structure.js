@@ -1,87 +1,67 @@
 // POST /api/structure  { lines: string[] }  ->  { items: [...] }
-// Uses an LLM on Groq to turn the raw text of a lyrics document into a structured
-// running order: section title slides plus songs split into labelled parts.
+// Uses an LLM on Groq to work out the running order of a lyrics document:
+// section title slides, where each song starts and ends, titles and part
+// labels. The model only returns line numbers; the lyric text itself is
+// always taken from the document, so nothing can be dropped or rewritten.
 
 const MAX_CHARS = 60000;
-
 const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 // Groq counts input + max_completion_tokens against the tokens-per-minute
 // limit (8000 on the free tier). Set GROQ_TPM higher on a paid tier.
 const TPM = +process.env.GROQ_TPM || 8000;
-const EFFORT = process.env.GROQ_REASONING || 'low';
+const EFFORT = process.env.GROQ_REASONING || 'medium';
 
-const SYSTEM = `You turn the text of a church service lyrics document into a running order for EasyWorship projection.
+const SYSTEM = `You work out the running order of a church service lyrics document for EasyWorship projection.
 
-The document arrives one paragraph per line, inside <document> tags. Layouts vary: numbered or unnumbered songs, "Lyrics: Title by Artist" headers, ALL-CAPS titles, verse labels with or without brackets, translations in parentheses, Leader/Choir call-and-response, dates and notes.
+The document is given one paragraph per line, each prefixed with its line number ("12| text"). Empty lines separate blocks. Layouts vary: numbered or unnumbered songs, "Lyrics: Title by Artist" headers, "Title Lyrics" headers, ALL-CAPS headings, verse labels with or without brackets, translations in parentheses, Call/Response or Leader/Choir lines, dates and notes.
 
-OUTPUT
-Return {"items": [...]} in document order. Each item is one of:
+Return JSON: {"items": [...]}, in document order. Each item is one of:
 
-1. A section title slide: {"kind":"section","title":"Praise","author":"","parts":[]}
-   Use for headings that group songs in the service: Praise, Worship, Special Song(s), Ministration, Thanksgiving, Offering, Hymn(s), Opening, Closing, Altar Call, Communion and similar. Title Case ("PRAISE" -> "Praise", "SPECIAL SONGS" -> "Special Songs"). Never put lyrics in a section.
+1. Section title slide: {"kind":"section","title":"Praise","author":"","parts":[]}
+   For headings that group songs in the service: Praise (A/B), Worship, Special Song(s), Ministration, Thanksgiving, Offering, Hymn(s), Opening, Closing, Altar Call, Communion and similar. Title Case, keep letters like "A"/"B" ("PRAISE A" -> "Praise A").
 
-2. A song: {"kind":"song","title":"...","author":"...","parts":[{"label":"...","lines":["...", "..."]}]}
-   - title: the song's name in Title Case. From "Lyrics: <title> by <artist>" or "<title> by <artist>" take <title>. A line like "<title> Lyrics" or "<title> lyrics" is a title: drop the word "Lyrics". From an ALL-CAPS heading above lyrics, use it in Title Case. Otherwise use a short phrase from the first line (max ~6 words), no trailing punctuation.
-   - author: the artist after "by", otherwise "".
-   - parts: every block of the song, in order. If the document gives only a song's title (e.g. "2. Awesome God by Kirk Franklin.") with no lyrics, still output the song with parts: [].
+2. Song: {"kind":"song","title":"...","author":"...","parts":[{"label":"...","from":N,"to":M}]}
+   - title: the song's name in Title Case. From "Lyrics: <title> by <artist>", "<title> by <artist>" or "<title> Lyrics" take <title>. If there is no heading, use a short phrase from the first lyric line.
+   - author: the artist after "by", else "".
+   - parts: the song's blocks in order. from/to are the first and last line numbers of the block's lyric lines (inclusive). Never include heading lines (numbers, dates, titles, "Lyrics:" lines, label lines, section headings) inside a range.
+   - A song whose lyrics are not in the document (only a title, e.g. "2. Awesome God by Kirk Franklin.") gets parts: [].
 
-WHERE SONGS START
-A new song starts at: a number like "2." or "3)", a "Lyrics:" line, an ALL-CAPS song heading, or a section heading. Lines after a number belong to that numbered song until the next number/heading. Never merge two numbered songs; never split one song into two.
+Where songs start: at a song number ("2.", "3)", or a bare "1"), a "Lyrics:"/"... Lyrics"/"... by ..." title line, an ALL-CAPS song heading, or a section heading. A numbered song runs until the next number or heading. Never merge two numbered songs and never split one song.
 
-PART LABELS (be consistent)
-- Use the document's own label if it has one ("[Verse 1]", "Chorus", "Pre-Chorus", "Bridge"...), written as one of: "Verse 1", "Verse 2", ..., "Chorus", "Pre-Chorus", "Bridge", "Refrain", "Intro", "Outro", "Tag", "Vamp", "Call & Response". Keep numbers the document uses ("Bridge 2", "Refrain 1"); write "[Verse]" as "Verse 1".
-- If unlabelled: a block (or line) that appears more than once in the song, or the short repeated hook, is "Chorus" every time it appears; other blocks are "Verse 1", "Verse 2"... in order; Leader:/Choir: or Call:/Resp: blocks are "Call & Response".
-- A song with only one block gets label "".
-- Blank lines in the document separate blocks. A label line starts a new block. Do not merge blocks or split a block.
+Part labels, one per block (a block = consecutive non-empty lines):
+- Use the document's label when given ("[Verse]", "Chorus", "Bridge 2", "Verse 1"...). The label line itself is not part of any range; the block after it is.
+- Allowed labels: "Verse 1", "Verse 2", ..., "Chorus", "Pre-Chorus", "Bridge" (or "Bridge 1", "Bridge 2"...), "Refrain" (or numbered), "Intro", "Outro", "Tag", "Vamp", "Call & Response".
+- When unlabelled: a block that repeats in the song, or is the short hook, is "Chorus" each time it appears; Call:/Resp: or Leader:/Choir: blocks are "Call & Response"; other blocks are "Verse 1", "Verse 2"... in order. A song with a single block uses "".
+- Every lyric line of the song must be inside exactly one part. Do not skip blocks.
 
-LINES
-- Copy every lyric line, one sung line per entry, in the original order. Do not drop, add, merge, reorder or summarise lines. If a block is repeated in the document, include it again each time.
-- Keep the exact words and spelling, especially Nigerian Pidgin, Yoruba, Igbo, Hausa, Efik and other non-English words, and informal spellings like "dey", "don", "wey", "oo", "o". Never translate or "correct" them.
-- Allowed fixes only: trim spaces, collapse doubled spaces/punctuation, fix obvious English misspellings, and capitalise the first letter of each line.
-- Keep a translation in parentheses on its own line directly after the line it translates.
-- Keep "Leader:", "Choir:", "Call:" and "Resp:" prefixes.
-- Remove repeat markers such as "x3", "(x2)", "[3x]", "2ce" and keep the line once.
-
-NOT LYRICS (drop them)
-Dates, song numbers, the "Lyrics:" header line, label lines (they become part labels), and editorial notes such as "repeat chorus" or "slow".
-
-EXAMPLE
-<document>
-04/10/2026
-PRAISE
-
-1.
-Lyrics: Come And See by Akpororo
-
-come and see oo what the Lord has done x2
-Precious One o, Sweety Father eh
-
-Come and see oo what the Lord has done
-
-2.
-Kai kadai [3x] Ubangiji
-(You alone our Saviour)
-WORSHIP
-NIGERIA ARISE
-Leader: We speak peace over Nigeria!
-Choir: we speak peace in our land
-</document>
+Example document:
+1| 04/10/2026
+2| PRAISE
+3| 
+4| 1.
+5| Lyrics: Come And See by Akpororo
+6| [Chorus]
+7| Come and see oo what the Lord has done x2
+8| 
+9| Precious One o, Sweety Father eh
+10| Daddy moh o, look how You turn my life
+11| 
+12| Come and see oo what the Lord has done
+13| 2.
+14| Awesome God by Kirk Franklin.
+15| WORSHIP
+16| Leader: We speak peace over Nigeria!
+17| Choir: We speak peace in our land
 Correct output:
 {"items":[
 {"kind":"section","title":"Praise","author":"","parts":[]},
-{"kind":"song","title":"Come And See","author":"Akpororo","parts":[
- {"label":"Chorus","lines":["Come and see oo what the Lord has done","Precious One o, Sweety Father eh"]},
- {"label":"Chorus","lines":["Come and see oo what the Lord has done"]}]},
-{"kind":"song","title":"Kai Kadai Ubangiji","author":"","parts":[
- {"label":"","lines":["Kai kadai Ubangiji","(You alone our Saviour)"]}]},
+{"kind":"song","title":"Come And See","author":"Akpororo","parts":[{"label":"Chorus","from":7,"to":7},{"label":"Verse 1","from":9,"to":10},{"label":"Chorus","from":12,"to":12}]},
+{"kind":"song","title":"Awesome God","author":"Kirk Franklin","parts":[]},
 {"kind":"section","title":"Worship","author":"","parts":[]},
-{"kind":"song","title":"Nigeria Arise","author":"","parts":[
- {"label":"Call & Response","lines":["Leader: We speak peace over Nigeria!","Choir: We speak peace in our land"]}]}
+{"kind":"song","title":"We Speak Peace Over Nigeria","author":"","parts":[{"label":"Call & Response","from":16,"to":17}]}
 ]}
 
-Reply with only the JSON object, no other text.
-
-Before answering, check: every lyric line from the document appears exactly once per occurrence, no words were changed, and each numbered song is its own item.`;
+Reply with only the JSON object.`;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -93,50 +73,50 @@ export default async function handler(req, res) {
     return;
   }
 
-  const lines = req.body && Array.isArray(req.body.lines) ? req.body.lines.map(String) : null;
+  const lines = req.body && Array.isArray(req.body.lines) ? req.body.lines.map((l) => String(l).trim()) : null;
   if (!lines || !lines.length) {
     res.status(400).json({ error: 'No text received.' });
     return;
   }
-  const text = lines.join('\n');
-  if (text.length > MAX_CHARS) {
+  if (lines.join('\n').length > MAX_CHARS) {
     res.status(413).json({ error: 'That document is too long for AI clean-up.' });
     return;
   }
+  const numbered = lines.map((l, i) => i + 1 + '| ' + l).join('\n');
 
   let best = null;
   let lastError = null;
   for (let attempt = 0; attempt < 2; attempt++) {
-    let result;
+    let raw;
     try {
-      result = await callGroq(text);
+      raw = await callGroq(numbered);
     } catch (err) {
       lastError = err;
       if (err.retry) continue;
       break;
     }
-    const items = clean(result.items);
-    const score = coverage(lines, items);
-    if (!best || score > best.score) best = { items, score };
-    if (score >= 0.97) break;
+    const built = build(raw, lines);
+    if (!best || built.coverage > best.coverage) best = built;
+    if (built.coverage >= 0.97) break;
   }
 
   if (!best) {
     res.status(lastError.status || 502).json({ error: lastError.message });
     return;
   }
-  if (best.score < 0.85) {
+  if (best.coverage < 0.85) {
     res.status(422).json({ error: 'The AI result left out too many lyrics.' });
     return;
   }
-  res.status(200).json({ items: best.items, coverage: Math.round(best.score * 100) / 100 });
+  res.status(200).json({ items: best.items, coverage: Math.round(best.coverage * 100) / 100 });
 }
 
-async function callGroq(text) {
-  // rough token estimate (~3.2 chars per token) plus a safety margin
-  const inputTokens = Math.ceil((SYSTEM.length + text.length) / 3.2) + 200;
-  const maxTokens = Math.min(32768, TPM - inputTokens);
+async function callGroq(numbered) {
+  // rough token estimate (~3 chars per token) plus a safety margin
+  const inputTokens = Math.ceil((SYSTEM.length + numbered.length) / 3) + 200;
+  const maxTokens = Math.min(16384, TPM - inputTokens);
   if (maxTokens < 1500) throw httpError(413, 'That document is too long for AI clean-up on the current Groq plan.');
+
   let r;
   try {
     r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -153,7 +133,7 @@ async function callGroq(text) {
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: SYSTEM },
-          { role: 'user', content: '<document>\n' + text + '\n</document>' },
+          { role: 'user', content: numbered },
         ],
       }),
     });
@@ -162,6 +142,7 @@ async function callGroq(text) {
     e.retry = true;
     throw e;
   }
+
   if (!r.ok) {
     // Keep Groq's own explanation: it is the only way to tell what went wrong.
     let detail = '';
@@ -174,7 +155,7 @@ async function callGroq(text) {
     }
     if (r.status === 429) throw httpError(429, 'The AI is busy right now (rate limit). Try again in a minute.');
     const e = httpError(502, 'The AI service returned an error (' + r.status + (detail ? ': ' + detail.slice(0, 300) : '') + ').');
-    // 400s here are usually a failed JSON generation, and 5xx are transient: worth one retry.
+    // 400s here are usually a failed generation, and 5xx are transient: worth one retry.
     e.retry = r.status === 400 || r.status >= 500;
     throw e;
   }
@@ -186,47 +167,14 @@ async function callGroq(text) {
     throw httpError(502, 'The AI returned an unexpected response.');
   }
   const choice = data.choices && data.choices[0];
-  if (!choice) throw httpError(502, 'The AI returned an unexpected response.');
-  if (choice.finish_reason === 'length') throw httpError(413, 'That document is too long for AI clean-up.');
-  const items = parseItems(choice.message && choice.message.content);
-  if (!items) {
-    console.error('Groq returned unusable JSON', String(choice.message && choice.message.content).slice(0, 2000));
+  const list = choice && parseList(choice.message && choice.message.content);
+  if (!list) {
+    console.error('Groq returned unusable output', choice && choice.finish_reason, String(choice && choice.message && choice.message.content).slice(0, 2000));
     const e = httpError(502, 'The AI returned an unexpected response.');
     e.retry = true;
     throw e;
   }
-  return { items };
-}
-
-// Accept the model's JSON even if it is wrapped in text or code fences, and
-// coerce it into the shape the app expects.
-function parseItems(content) {
-  if (typeof content !== 'string') return null;
-  const start = content.indexOf('{');
-  const end = content.lastIndexOf('}');
-  if (start < 0 || end <= start) return null;
-  let data;
-  try {
-    data = JSON.parse(content.slice(start, end + 1));
-  } catch {
-    return null;
-  }
-  const list = Array.isArray(data) ? data : data && Array.isArray(data.items) ? data.items : null;
-  if (!list) return null;
-  const str = (v) => (typeof v === 'string' ? v : v == null ? '' : String(v));
-  return list
-    .filter((it) => it && typeof it === 'object')
-    .map((it) => ({
-      kind: it.kind === 'section' ? 'section' : 'song',
-      title: str(it.title),
-      author: str(it.author),
-      parts: (Array.isArray(it.parts) ? it.parts : [])
-        .filter((p) => p && typeof p === 'object')
-        .map((p) => ({
-          label: str(p.label),
-          lines: (Array.isArray(p.lines) ? p.lines : typeof p.lines === 'string' ? p.lines.split('\n') : []).map(str),
-        })),
-    }));
+  return list;
 }
 
 function httpError(status, message) {
@@ -235,7 +183,84 @@ function httpError(status, message) {
   return e;
 }
 
-// ---------- post-processing ----------
+// Accept the model's JSON even if wrapped in text or code fences.
+function parseList(content) {
+  if (typeof content !== 'string') return null;
+  const start = content.indexOf('{');
+  const end = content.lastIndexOf('}');
+  if (start < 0 || end <= start) return null;
+  try {
+    const data = JSON.parse(content.slice(start, end + 1));
+    const list = Array.isArray(data) ? data : data && data.items;
+    return Array.isArray(list) ? list.filter((it) => it && typeof it === 'object') : null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------- building the result from line numbers ----------
+
+const META = /^(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}|\d{1,3}[.)]?|lyrics?\s*[:-].*|.*\blyrics\.?|\[.*\]|(verse|chorus|pre-?chorus|bridge|refrain|intro|outro|tag|vamp)\s*\d*\s*:?)$/i;
+
+function build(list, lines) {
+  const used = new Set();
+  const items = [];
+  const str = (v) => (typeof v === 'string' ? v : v == null ? '' : String(v));
+
+  for (const it of list) {
+    if (it.kind === 'section') {
+      const title = cleanTitle(it.title);
+      if (title) items.push({ kind: 'section', title: capitalise(title), author: '', parts: [] });
+      continue;
+    }
+    const parts = [];
+    for (const p of Array.isArray(it.parts) ? it.parts : []) {
+      const from = Math.max(1, Math.floor(+p.from));
+      const to = Math.min(lines.length, Math.floor(+p.to));
+      if (!(from <= to)) continue;
+      const label = cleanLabel(p.label);
+      // blank lines inside a range split it into separate slides groups
+      let cur = [];
+      for (let n = from; n <= to; n++) {
+        const text = lines[n - 1];
+        if (!text || isLabelLine(text)) {
+          if (cur.length) parts.push({ label, lines: cur });
+          cur = [];
+          continue;
+        }
+        used.add(n);
+        const line = cleanLine(text);
+        if (line) cur.push(line);
+      }
+      if (cur.length) parts.push({ label, lines: cur });
+    }
+    let title = cleanTitle(str(it.title)).replace(/\s+lyrics$/i, '');
+    if (!parts.length) {
+      // title only (lyrics not in the document): one slide with the title
+      if (!title) continue;
+      parts.push({ label: '', lines: [capitalise(title)] });
+    }
+    title = title || cleanTitle(parts[0].lines[0]);
+    items.push({ kind: 'song', title: capitalise(title), author: cleanTitle(str(it.author)), parts });
+  }
+
+  // Share of lyric-looking lines that ended up in a song.
+  let lyric = 0;
+  let covered = 0;
+  const headings = new Set(items.map((it) => it.title.toLowerCase()));
+  lines.forEach((l, i) => {
+    if (!l || META.test(l) || headings.has(cleanTitle(l).toLowerCase())) return;
+    lyric++;
+    if (used.has(i + 1)) covered++;
+  });
+  return { items, coverage: lyric ? covered / lyric : 1 };
+}
+
+function isLabelLine(l) {
+  return /^(\[.*\]|(verse|chorus|pre-?chorus|bridge|refrain|intro|outro|tag|vamp)\s*\d*\s*:?)$/i.test(l.trim());
+}
+
+// ---------- text clean-up ----------
 
 const REPEAT = /\s*(?:[([]\s*(?:x\s*\d+|\d+\s*x)\s*[)\]]|\b(?:x\s*\d+|\d+\s*x)\b|\b\d+ce\b)\s*/gi;
 const LABELS = {
@@ -272,48 +297,4 @@ function cleanTitle(t) {
   return t;
 }
 
-function clean(items) {
-  const out = [];
-  for (const it of items) {
-    if (it.kind === 'section') {
-      const title = cleanTitle(it.title);
-      if (title) out.push({ kind: 'section', title: capitalise(title), author: '', parts: [] });
-      continue;
-    }
-    const parts = (it.parts || [])
-      .map((p) => ({ label: cleanLabel(p.label), lines: (p.lines || []).map(cleanLine).filter(Boolean) }))
-      .filter((p) => p.lines.length);
-    let title = cleanTitle(it.title).replace(/\s+lyrics$/i, '');
-    if (!parts.length) {
-      // title only (lyrics not in the document): one slide with the title
-      if (!title) continue;
-      parts.push({ label: '', lines: [capitalise(title)] });
-    }
-    title = title || cleanTitle(parts[0].lines[0]);
-    out.push({ kind: 'song', title: capitalise(title), author: cleanTitle(it.author), parts });
-  }
-  return out;
-}
-
-// Share of the document's lyric words that made it into the result.
-function words(s) {
-  return s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').match(/\p{L}+/gu) || [];
-}
-function coverage(lines, items) {
-  const META = /^(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}|\d{1,3}[.)]?|lyrics?\s*[:-].*|\[.*\]|(verse|chorus|pre-?chorus|bridge|refrain|intro|outro|tag|vamp)\s*\d*\s*:?)$/i;
-  const source = lines.filter((l) => l.trim() && !META.test(l.trim())).flatMap((l) => words(l.replace(REPEAT, ' ')));
-  if (!source.length) return 1;
-  const have = new Map();
-  for (const it of items) {
-    for (const w of words(it.title + ' ' + it.author)) have.set(w, (have.get(w) || 0) + 1);
-    for (const p of it.parts) for (const l of p.lines) for (const w of words(l)) have.set(w, (have.get(w) || 0) + 1);
-  }
-  let found = 0;
-  for (const w of source) {
-    const n = have.get(w);
-    if (n) { found++; have.set(w, n - 1); }
-  }
-  return found / source.length;
-}
-
-export const _test = { clean, coverage, capitalise };
+export const _test = { build, capitalise };
