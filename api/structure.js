@@ -151,7 +151,12 @@ async function callGroq(numbered) {
     } catch {
       console.error('Groq error', r.status);
     }
-    if (r.status === 429) throw httpError(429, 'The AI is busy right now (rate limit). Try again in a minute.');
+    if (r.status === 429) {
+      const perDay = /per day|TPD|RPD/i.test(detail);
+      throw httpError(429, perDay
+        ? 'The Groq free-tier daily limit has been reached. AI clean-up will work again tomorrow (or upgrade the Groq plan).'
+        : 'The AI is busy right now (rate limit). Try again in a minute.');
+    }
     const e = httpError(502, 'The AI service returned an error (' + r.status + (detail ? ': ' + detail.slice(0, 300) : '') + ').');
     // 400s here are usually a failed generation, and 5xx are transient: worth one retry.
     e.retry = r.status === 400 || r.status >= 500;
