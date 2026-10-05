@@ -12,10 +12,15 @@ import { geminiJson } from './_gemini.js';
 const LRCLIB = 'https://lrclib.net/api';
 const UA = 'ewschedule (https://github.com/ctoriola/ewschedule)';
 
-const IDENTIFY_SYSTEM = `You help a church media team find songs. The user types a song title, an artist, or a line they remember from the lyrics (often gospel or worship songs, including Nigerian and African songs in English, Pidgin, Yoruba, Igbo, Hausa or Efik).
-Use Google Search to find which published songs match. Prefer songs whose lyrics or title actually contain the user's words.
+const IDENTIFY_SYSTEM = `You help a church media team find songs. The user types a song title, an artist, or a line they remember from the lyrics. Most are gospel or worship songs, many Nigerian or African, in English, Pidgin, Yoruba, Igbo, Hausa or Efik; the line may be misspelt or partly remembered.
+
+How to search:
+1. If the text looks like a lyric line, search Google for the exact words in quotes plus the word lyrics, e.g. "you are the living god o" lyrics. Also try a shorter distinctive part of the line in quotes, and the line without quotes.
+2. If it looks like a title or artist, search for it plus the word lyrics.
+3. Read the results and keep only songs whose published lyrics (or title) actually contain the user's words. The song's title often differs from the line (e.g. a line from the verse of "Ekwueme").
+
 Reply with only JSON: {"matches":[{"title":"...","artist":"..."}]}
-Give up to 4 matches, best first, with official title and main artist spelling. If nothing matches, return {"matches":[]}. Never invent songs.`;
+Up to 4 matches, best first, official title and main artist spelling. If nothing matches, return {"matches":[]}. Never invent songs or guess from the meaning of the words.`;
 
 const LYRICS_SYSTEM = `You help a church media team that holds a licence to project song lyrics (e.g. CCLI). Use Google Search to find the full lyrics of the requested song as published on lyrics sites.
 Reply with only JSON: {"title":"...","artist":"...","lyrics":"..."}
@@ -44,7 +49,7 @@ export default async function handler(req, res) {
       return;
     }
     const results = await search(q);
-    res.status(200).json({ results, identifyError: results.identifyError || undefined });
+    res.status(200).json({ results, model: lastModel || undefined, identifyError: results.identifyError || undefined });
   } catch (err) {
     console.error('song search failed', err);
     res.status(502).json({ error: 'Song search is not working right now. Try again shortly.' });
@@ -112,12 +117,14 @@ async function search(q) {
 }
 
 let lastIdentifyError = null;
+let lastModel = null;
 
 async function identify(q) {
   lastIdentifyError = null;
   if (!process.env.GEMINI_API_KEY) return [];
   try {
-    const data = await geminiJson(IDENTIFY_SYSTEM, q, { maxTokens: 2048 });
+    const data = await geminiJson(IDENTIFY_SYSTEM, 'Find the song for: ' + q, { maxTokens: 4096 });
+    lastModel = data._model;
     return (Array.isArray(data.matches) ? data.matches : [])
       .filter((m) => m && typeof m.title === 'string' && m.title.trim())
       .slice(0, 4)
