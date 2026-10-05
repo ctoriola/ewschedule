@@ -4,7 +4,7 @@
 // it only returns titles, artists, labels and merge flags, which are applied
 // in code. (Files starting with "_" are not deployed as API routes.)
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+import { geminiJson, parseJson } from './_gemini.js';
 
 const JUDGE_SYSTEM = `You check the running order of a church service lyrics document before it is projected in EasyWorship. Another AI already split the document into section title slides and songs, and labelled each song's parts. You review that work and identify the songs.
 
@@ -41,48 +41,9 @@ function render(items) {
   return out.join('\n');
 }
 
-function parseJson(text) {
-  if (typeof text !== 'string') return null;
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start < 0 || end <= start) return null;
-  try {
-    return JSON.parse(text.slice(start, end + 1));
-  } catch {
-    return null;
-  }
-}
-
 async function askGemini(items) {
-  const r = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(GEMINI_MODEL) + ':generateContent',
-    {
-      method: 'POST',
-      headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: JUDGE_SYSTEM }] },
-        contents: [{ role: 'user', parts: [{ text: render(items) }] }],
-        tools: [{ google_search: {} }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 16384 },
-      }),
-    },
-  );
-  if (!r.ok) {
-    let detail = '';
-    try {
-      detail = JSON.stringify((await r.json()).error || '').slice(0, 1000);
-    } catch {}
-    throw new Error('Gemini ' + r.status + ' ' + detail);
-  }
-  const data = await r.json();
-  const cand = data.candidates && data.candidates[0];
-  const text = cand && cand.content && Array.isArray(cand.content.parts)
-    ? cand.content.parts.map((p) => p.text || '').join('')
-    : '';
-  const parsed = parseJson(text);
-  if (!parsed || !Array.isArray(parsed.songs)) {
-    throw new Error('Gemini returned unusable output (' + (cand && cand.finishReason) + '): ' + text.slice(0, 500));
-  }
+  const parsed = await geminiJson(JUDGE_SYSTEM, render(items));
+  if (!Array.isArray(parsed.songs)) throw new Error('Gemini reply has no songs list');
   return parsed.songs;
 }
 

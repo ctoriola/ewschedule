@@ -162,6 +162,24 @@
     return parts;
   }
 
+  // Plain lyrics (blank line between stanzas) -> labelled parts. A stanza that
+  // appears more than once is the Chorus; the others are numbered verses.
+  function lyricsToParts(text) {
+    var blocks = String(text || '').replace(/\r/g, '').split(/\n\s*\n/).map(function (b) {
+      return b.split('\n').map(function (l) { return l.trim(); }).filter(function (l) {
+        return l && !/^\[.*\]$/.test(l) && !/^\(?(verse|chorus|bridge|pre-?chorus|refrain|intro|outro|tag)\s*\d*\)?:?$/i.test(l);
+      });
+    }).filter(function (b) { return b.length; });
+    if (blocks.length === 1) return [{ label: '', lines: blocks[0] }];
+    var key = function (b) { return b.join(' ').toLowerCase().replace(/[^a-z0-9À-￿]+/g, ' ').trim(); };
+    var counts = {};
+    blocks.forEach(function (b) { counts[key(b)] = (counts[key(b)] || 0) + 1; });
+    var verse = 0;
+    return blocks.map(function (b) {
+      return { label: counts[key(b)] > 1 ? 'Chorus' : 'Verse ' + (++verse), lines: b };
+    });
+  }
+
   // Capitalise the first letter of a line (after any brackets/quotes or a
   // "Leader:"/"Choir:" prefix).
   function capitalise(line) {
@@ -341,7 +359,7 @@
 
   var api = {
     docxXmlToLines: docxXmlToLines, parseLines: parseLines,
-    partsToText: partsToText, capitalise: capitalise, textToParts: textToParts, toSlides: toSlides,
+    partsToText: partsToText, capitalise: capitalise, lyricsToParts: lyricsToParts, textToParts: textToParts, toSlides: toSlides,
     slideRtf: slideRtf, buildDatabase: buildDatabase, buildEwsx: buildEwsx
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
