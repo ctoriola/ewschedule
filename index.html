@@ -63,11 +63,12 @@
   .hero { position: relative; padding: 72px 0 40px; overflow: hidden; isolation: isolate; }
   .hero::before { content: ""; position: absolute; inset: 0; z-index: -2; -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 75%); mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 75%); background-image: radial-gradient(rgba(12,14,19,.12) 1px, transparent 1.2px); background-size: 14px 14px; }
   /* outer layer only rotates (composited); inner layer is blurred once */
-  .ring { position: absolute; z-index: -1; left: 50%; top: -140px; width: min(1000px, 140vw); aspect-ratio: 1; margin-left: calc(min(1000px, 140vw) / -2); pointer-events: none; will-change: transform; animation: ringspin 40s linear infinite; }
+  .ring { position: absolute; z-index: -1; left: 50%; top: -230px; width: min(1180px, 150vw); aspect-ratio: 1; margin-left: calc(min(1180px, 150vw) / -2); pointer-events: none; will-change: transform; animation: ringspin 40s linear infinite; }
   .ring::before { content: ""; position: absolute; inset: 0; border-radius: 50%;
-    background: conic-gradient(from 200deg, rgba(255,138,122,.0), rgba(255,138,122,.85) 18%, rgba(255,170,190,.6) 30%, rgba(185,168,255,.55) 50%, rgba(90,150,255,.85) 72%, rgba(63,140,255,.0) 90%);
-    -webkit-mask: radial-gradient(circle, transparent 52%, #000 60%, #000 64%, transparent 74%); mask: radial-gradient(circle, transparent 52%, #000 60%, #000 64%, transparent 74%);
-    filter: blur(28px); opacity: .9; }
+    background: conic-gradient(from 200deg, rgba(255,138,122,0) 0%, rgba(255,128,110,.75) 16%, rgba(255,160,180,.55) 30%, rgba(196,176,255,.45) 48%, rgba(120,160,255,.6) 62%, rgba(70,140,255,.8) 74%, rgba(63,140,255,0) 92%);
+    -webkit-mask: radial-gradient(circle closest-side, transparent 50%, rgba(0,0,0,.18) 60%, rgba(0,0,0,.6) 70%, #000 78%, rgba(0,0,0,.55) 86%, rgba(0,0,0,.15) 94%, transparent 100%);
+            mask: radial-gradient(circle closest-side, transparent 50%, rgba(0,0,0,.18) 60%, rgba(0,0,0,.6) 70%, #000 78%, rgba(0,0,0,.55) 86%, rgba(0,0,0,.15) 94%, transparent 100%);
+    filter: blur(46px); opacity: .85; }
   @keyframes ringspin { to { transform: rotate(360deg); } }
   .ring.paused { animation-play-state: paused; }
   @media (prefers-reduced-motion: reduce) { .ring { animation: none; } }
