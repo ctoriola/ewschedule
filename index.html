@@ -4,151 +4,369 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lyrics to EasyWorship</title>
-<meta name="description" content="Upload a .docx of song lyrics and download a ready-made EasyWorship schedule (.ewsx).">
+<meta name="description" content="Turn a Word document of song lyrics, or songs you search for, into a ready-to-open EasyWorship schedule (.ewsx).">
+<meta name="color-scheme" content="light">
 <link rel="icon" href="favicon.ico">
 <style>
   @font-face { font-family: "Inter Tight"; src: url("assets/fonts/inter-tight.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
   :root {
-    --bg: #03060d; --panel: rgba(255,255,255,.04); --ink: #eef4ff; --muted: #8a99b3;
-    --line: rgba(140,180,255,.16); --blue: #2f7fe0; --blue-soft: #6fb0ff; --danger: #ff7b7b; --gold: #f2c86b;
+    --bg: #f3f4f7; --surface: #ffffff; --panel: #eceef2; --ink: #0c0e13; --ink-2: #2a2f3a; --muted: #6a7180;
+    --line: rgba(12, 14, 19, .09); --line-strong: rgba(12, 14, 19, .16);
+    --blue: #1d6bff; --blue-2: #3f8cff; --blue-soft: #e8f0ff; --coral: #ff8a7a; --lilac: #b9a8ff;
+    --danger: #d93f3f; --gold: #b7791f;
+    --dark: #17181c; --dark-2: #222329; --dark-line: rgba(255,255,255,.08); --dark-muted: #9aa0ab;
+    --radius: 18px; --shadow: 0 1px 2px rgba(12,14,19,.06), 0 12px 32px -12px rgba(12,14,19,.18);
+    --shadow-lg: 0 2px 4px rgba(12,14,19,.06), 0 30px 60px -20px rgba(12,14,19,.35);
   }
   * { box-sizing: border-box; }
   html, body { max-width: 100%; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 "Inter Tight", system-ui, sans-serif; }
-  main { max-width: 1180px; margin: 0 auto; padding: 40px 16px 80px; }
-  h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.1; margin: 0 0 8px; letter-spacing: -.02em; }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
-  p.lead { color: var(--muted); margin: 0 0 24px; max-width: 680px; }
-  code { font-size: .92em; }
-  .drop { display: block; border: 1.5px dashed var(--line); border-radius: 16px; padding: 32px 20px; text-align: center; background: var(--panel); cursor: pointer; transition: border-color .15s, background .15s; }
-  .drop.over, .drop:hover { border-color: var(--blue-soft); background: rgba(47,127,224,.08); }
-  .drop strong { display: block; font-size: 18px; margin-bottom: 4px; }
-  .drop span { display: block; color: var(--muted); }
-  .ai-opt { display: flex; gap: 8px; align-items: center; margin-top: 12px; color: var(--muted); }
-  input[type=file] { display: none; }
-  select, input[type=text], input[type=number], textarea { background: rgba(255,255,255,.05); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; font: inherit; padding: 6px 10px; }
-  input[type=number] { width: 72px; }
-  textarea { width: 100%; min-height: 180px; resize: vertical; line-height: 1.45; font-size: 14px; }
-  button { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.06); color: var(--ink); padding: 8px 14px; }
-  button:hover { border-color: var(--blue-soft); }
-  button:disabled { opacity: .5; cursor: default; }
-  button.primary { background: var(--blue); border-color: var(--blue); font-weight: 600; }
-  button.primary:hover { background: #3b8cf0; }
-  button.icon { padding: 3px 9px; font-size: 13px; }
-  button.danger:hover { border-color: var(--danger); color: var(--danger); }
-  .status { color: var(--muted); margin-top: 14px; min-height: 1.5em; }
-  .status.err { color: var(--danger); }
-  .status.busy::before { content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 8px; border: 2px solid var(--blue-soft); border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -1px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 "Inter Tight", system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  a { color: inherit; }
+  code { font-size: .92em; background: var(--panel); padding: 1px 5px; border-radius: 5px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
   .hidden { display: none !important; }
-  @media (max-width: 560px) {
-    main { padding-top: 24px; }
-    .bar { position: static; }
-    .bar .acts { width: 100%; }
-    .bar .acts button { flex: 1; }
-    .finder form { flex-wrap: wrap; }
-    .finder form button { flex: 1 0 100%; }
-    .card-head input.title, .card-head input.author { flex: 1 1 100%; }
-    .drop { padding: 24px 16px; }
-  }
+  .grad { background: linear-gradient(95deg, var(--ink) 0%, var(--ink) 30%, #2d5fd8 62%, #5aa2ff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .dots { background-image: radial-gradient(rgba(12,14,19,.11) 1px, transparent 1.2px); background-size: 14px 14px; }
 
-  .start { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
-  .finder { min-width: 0; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); padding: 18px; display: flex; flex-direction: column; gap: 10px; }
-  .finder strong { font-size: 18px; }
-  .finder form { display: flex; gap: 8px; }
-  .finder input[type=search] { flex: 1; min-width: 0; background: rgba(255,255,255,.05); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; font: inherit; padding: 8px 12px; }
-  .finder .note { color: var(--muted); font-size: 12px; margin: 0; }
-  .results { list-style: none; margin: 0; padding: 0 4px 0 0; display: flex; flex-direction: column; gap: 8px; max-height: min(360px, 50vh); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+  /* ---------- buttons & inputs ---------- */
+  button, .btn { font: inherit; font-weight: 500; cursor: pointer; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); padding: 8px 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; transition: border-color .15s, background .15s, transform .15s, box-shadow .15s; }
+  button:hover, .btn:hover { border-color: var(--ink-2); }
+  button:active, .btn:active { transform: translateY(1px); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary, .btn.primary { background: linear-gradient(180deg, #23252c, #0c0e13); border-color: #0c0e13; color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 6px 16px -6px rgba(12,14,19,.5); }
+  button.primary:hover, .btn.primary:hover { background: linear-gradient(180deg, #2d3039, #14161c); }
+  .btn.pill, button.pill { border-radius: 999px; padding: 8px 16px; }
+  .btn.glow { position: relative; }
+  .btn.glow::after { content: ""; position: absolute; right: -2px; top: -2px; bottom: -2px; width: 46%; border-radius: 0 999px 999px 0; background: linear-gradient(90deg, transparent, rgba(63,140,255,.9)); filter: blur(6px); opacity: .55; z-index: -1; }
+  button.icon { padding: 4px 9px; font-size: 13px; border-radius: 8px; }
+  button.danger:hover { border-color: var(--danger); color: var(--danger); }
+  select, input[type=text], input[type=number], textarea { background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); border-radius: 10px; font: inherit; padding: 7px 10px; }
+  select:focus, input:focus, textarea:focus { outline: 2px solid var(--blue-2); outline-offset: 1px; }
+  input[type=number] { width: 72px; }
+  textarea { width: 100%; min-height: 190px; resize: vertical; line-height: 1.5; font-size: 14px; }
+
+  /* ---------- nav ---------- */
+  .nav { position: sticky; top: 0; z-index: 30; backdrop-filter: saturate(1.4) blur(14px); -webkit-backdrop-filter: saturate(1.4) blur(14px); background: rgba(243,244,247,.72); border-bottom: 1px solid transparent; transition: border-color .2s; }
+  .nav.scrolled { border-bottom-color: var(--line); }
+  .nav .wrap { display: flex; align-items: center; gap: 28px; height: 64px; }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; letter-spacing: -.02em; text-decoration: none; }
+  .logo svg { width: 30px; height: 18px; }
+  .nav-links { display: flex; gap: 22px; font-size: 14px; color: var(--ink-2); }
+  .nav-links a { text-decoration: none; }
+  .nav-links a:hover { color: var(--blue); }
+  .nav-cta { margin-left: auto; display: flex; gap: 8px; }
+  @media (max-width: 720px) { .nav-links { display: none; } }
+
+  /* ---------- hero ---------- */
+  .hero { position: relative; padding: 72px 0 40px; overflow: hidden; isolation: isolate; }
+  .hero::before { content: ""; position: absolute; inset: 0; z-index: -2; -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 75%); mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 75%); background-image: radial-gradient(rgba(12,14,19,.12) 1px, transparent 1.2px); background-size: 14px 14px; }
+  .ring { position: absolute; z-index: -1; left: 50%; top: -140px; width: min(1000px, 140vw); aspect-ratio: 1; transform: translateX(-50%); border-radius: 50%;
+    background: conic-gradient(from 200deg, rgba(255,138,122,.0), rgba(255,138,122,.85) 18%, rgba(255,170,190,.6) 30%, rgba(185,168,255,.55) 50%, rgba(90,150,255,.85) 72%, rgba(63,140,255,.0) 90%);
+    -webkit-mask: radial-gradient(circle, transparent 52%, #000 60%, #000 64%, transparent 74%); mask: radial-gradient(circle, transparent 52%, #000 60%, #000 64%, transparent 74%);
+    filter: blur(28px); opacity: .9; animation: ringspin 40s linear infinite; }
+  @keyframes ringspin { to { transform: translateX(-50%) rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .ring { animation: none; } html { scroll-behavior: auto; } }
+  .hero-inner { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); background: rgba(255,255,255,.7); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px 4px 6px; margin-bottom: 18px; box-shadow: var(--shadow); }
+  .eyebrow b { background: var(--ink); color: #fff; border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: 600; }
+  h1 { font-size: clamp(40px, 7.4vw, 76px); line-height: .98; letter-spacing: -.045em; margin: 0 0 16px; font-weight: 600; }
+  .hero p.lead { font-size: clamp(16px, 2vw, 18px); color: var(--ink-2); margin: 0 0 28px; max-width: 580px; }
+
+  /* command card (search + docx drop) */
+  .command { position: relative; background: var(--dark); color: #fff; border-radius: 18px; box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,.06); overflow: hidden; transition: box-shadow .2s, transform .2s; }
+  .command.over { transform: translateY(-2px); box-shadow: var(--shadow-lg), 0 0 0 2px var(--blue-2); }
+  .command form { display: flex; flex-direction: column; gap: 10px; padding: 16px 16px 12px; }
+  .command .q { width: 100%; background: transparent; border: 0; color: #fff; font: inherit; font-size: 17px; padding: 6px 2px; min-height: 56px; outline: none; border-left: 2px solid transparent; }
+  .command .q::placeholder { color: var(--dark-muted); }
+  .command .row { display: flex; align-items: center; gap: 8px; }
+  .command .tool { width: 34px; height: 34px; padding: 0; border-radius: 10px; background: var(--dark-2); border: 1px solid var(--dark-line); color: #cfd3db; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+  .command .tool:hover { border-color: rgba(255,255,255,.3); color: #fff; }
+  .command .tool.blue { background: linear-gradient(180deg, #2f7fe0, #1d5fd0); border-color: #3b86ff; color: #fff; }
+  .command .tool svg { width: 16px; height: 16px; }
+  .command .send { margin-left: auto; background: #fff; color: var(--ink); border: 0; border-radius: 10px; height: 34px; padding: 0 14px; font-weight: 600; }
+  .command .send:hover { background: #e9ecf2; }
+  .command .bar-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px; font-size: 13px; color: #dfe6f5; background: linear-gradient(90deg, rgba(29,107,255,.0) 0%, rgba(29,107,255,.35) 45%, rgba(63,140,255,.95) 100%); border-top: 1px solid rgba(255,255,255,.06); }
+  .command .bar-foot label.up { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  .command .chips { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+  .command .chip { font-size: 11px; font-weight: 600; letter-spacing: .02em; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.2); border-radius: 6px; padding: 2px 7px; color: #fff; }
+  .ai-opt { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; color: #e7ecf6; }
+  .ai-opt input { accent-color: var(--blue-2); }
+  input[type=file] { display: none; }
+
+  .results { list-style: none; margin: 0; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 6px; max-height: min(340px, 48vh); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
   .results:empty { display: none; }
-  .result { min-width: 0; display: flex; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+  .results .hint, .results .status { color: var(--dark-muted); margin: 0; padding: 6px 2px; }
+  .result { min-width: 0; display: flex; gap: 10px; align-items: center; background: var(--dark-2); border: 1px solid var(--dark-line); border-radius: 12px; padding: 9px 10px 9px 12px; }
   .result .info { flex: 1; min-width: 0; }
   .result .t { font-weight: 600; overflow-wrap: anywhere; }
-  .result .a { overflow-wrap: anywhere; }
-  .result button { flex: none; }
-  .result .a { color: var(--muted); font-size: 13px; }
-  .result .first { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .result .src { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
-  .result.added { opacity: .55; }
+  .result .a { color: var(--dark-muted); font-size: 13px; overflow-wrap: anywhere; }
+  .result .first { color: #7e8590; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .result .src { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #aeb7c6; border: 1px solid rgba(255,255,255,.16); border-radius: 99px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; font-weight: 500; }
+  .result button { flex: none; background: #fff; color: var(--ink); border: 0; border-radius: 8px; padding: 6px 14px; font-weight: 600; }
+  .result button:hover { background: #e9ecf2; }
+  .result.added { opacity: .5; }
+  .note { color: var(--muted); font-size: 12.5px; margin: 10px 2px 0; }
+  .status { color: var(--ink-2); margin-top: 14px; min-height: 1.5em; font-size: 14px; }
+  .status.err { color: var(--danger); }
+  .status.busy::before { content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 8px; border: 2px solid var(--blue); border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -1px; }
+  .results .status.busy::before { border-color: #fff; border-right-color: transparent; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
-  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin: 24px 0 16px; position: sticky; top: 0; padding: 12px 0; background: var(--bg); z-index: 5; border-bottom: 1px solid var(--line); }
-  .bar .opts { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; color: var(--muted); }
+  .works { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px 28px; margin: 34px auto 0; color: var(--ink-2); font-weight: 600; font-size: 15px; letter-spacing: -.01em; }
+  .works span { display: inline-flex; align-items: center; gap: 7px; opacity: .8; }
+  .works i { width: 16px; height: 16px; border-radius: 5px; display: inline-block; }
+  .works-label { text-align: center; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; margin-top: 40px; }
+
+  /* ---------- flow diagram ---------- */
+  .flow { position: relative; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0; max-width: 900px; margin: 56px auto 0; padding: 0 20px; }
+  .flow .pillbox { justify-self: end; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+  .flow .ghost { font-size: 12px; color: var(--muted); opacity: .7; }
+  .flow .pill { background: var(--surface); border: 2px solid var(--ink); border-radius: 999px; padding: 9px 16px; font-size: 13px; font-weight: 500; box-shadow: 0 0 0 4px rgba(63,140,255,.25), var(--shadow); white-space: nowrap; display: flex; gap: 8px; align-items: center; }
+  .flow .pill b { color: var(--blue); font-weight: 600; }
+  .flow .wire { height: 3px; background: linear-gradient(90deg, var(--ink), var(--blue-2)); width: 100%; min-width: 30px; }
+  .flow .left { display: grid; grid-template-columns: auto 1fr; align-items: center; }
+  .flow .right { display: grid; grid-template-columns: 1fr auto; align-items: center; }
+  .orb { width: 190px; height: 190px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 50% 50%, #fff 52%, #eef3ff 58%, transparent 59%), conic-gradient(from 210deg, #0b2a6b, #1d6bff, #8bbcff, #1d6bff, #0b2a6b); box-shadow: 0 30px 60px -20px rgba(29,107,255,.55), inset 0 0 0 1px rgba(255,255,255,.4); position: relative; }
+  .orb .core { width: 92px; height: 92px; border-radius: 50%; background: #fff; box-shadow: 0 10px 30px -8px rgba(12,14,19,.25); display: grid; place-items: center; }
+  .orb .core svg { width: 40px; height: 40px; }
+  .orb .tag { position: absolute; bottom: 30px; background: #fff; border: 1.5px solid var(--ink); border-radius: 999px; font-size: 11px; font-weight: 600; padding: 2px 10px; white-space: nowrap; }
+  .flow .card-out { background: var(--surface); border: 2px solid var(--ink); border-radius: 16px; padding: 12px 14px; box-shadow: 0 0 0 4px rgba(63,140,255,.25), var(--shadow); font-size: 13px; min-width: 210px; }
+  .flow .card-out .rows { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+  .flow .card-out .r { display: flex; justify-content: space-between; gap: 10px; color: var(--ink-2); font-size: 12px; background: var(--bg); border-radius: 7px; padding: 4px 8px; }
+  .flow .card-out .r.sec { color: var(--gold); font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: .05em; }
+  @media (max-width: 760px) {
+    .flow { grid-template-columns: 1fr; justify-items: center; gap: 0; }
+    .flow .left, .flow .right { grid-template-columns: 1fr; justify-items: center; }
+    .flow .pillbox { justify-self: center; align-items: center; }
+    .flow .wire { width: 3px; height: 28px; min-width: 0; background: linear-gradient(180deg, var(--ink), var(--blue-2)); }
+    .flow .left .wire { order: 2; }
+    .flow .ghost { display: none; }
+  }
+
+  /* ---------- sections ---------- */
+  section.block { padding: 96px 0 0; }
+  h2 { font-size: clamp(32px, 5vw, 52px); line-height: 1.02; letter-spacing: -.04em; margin: 0 0 12px; font-weight: 600; }
+  .sub { color: var(--ink-2); margin: 0 0 32px; max-width: 620px; font-size: 16px; }
+
+  /* bento pillars */
+  .bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px; }
+  .tile { position: relative; background: var(--panel); border-radius: 22px; overflow: hidden; min-height: 320px; padding: 24px; display: flex; flex-direction: column; justify-content: flex-end; isolation: isolate; }
+  .tile::before { content: ""; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(rgba(12,14,19,.08) 1px, transparent 1.2px); background-size: 14px 14px; -webkit-mask-image: radial-gradient(ellipse at 60% 35%, #000 20%, transparent 70%); mask-image: radial-gradient(ellipse at 60% 35%, #000 20%, transparent 70%); }
+  .tile.w7 { grid-column: span 7; } .tile.w5 { grid-column: span 5; } .tile.w4 { grid-column: span 4; } .tile.w8 { grid-column: span 8; }
+  @media (max-width: 900px) { .tile.w7, .tile.w5, .tile.w4, .tile.w8 { grid-column: span 12; } }
+  .tile .ico { width: 28px; height: 28px; border-radius: 8px; background: var(--ink); color: #fff; display: grid; place-items: center; margin-bottom: 12px; }
+  .tile .ico svg { width: 15px; height: 15px; }
+  .tile h3 { margin: 0 0 4px; font-size: 22px; letter-spacing: -.02em; font-weight: 600; }
+  .tile p { margin: 0; color: var(--ink-2); max-width: 330px; }
+  .tile .art { position: absolute; inset: 0 0 auto 0; height: 62%; display: grid; place-items: center; pointer-events: none; }
+  .mini-cmd { width: min(320px, 84%); background: var(--dark); border-radius: 12px; box-shadow: var(--shadow-lg); color: #cfd3db; font-size: 11.5px; overflow: hidden; }
+  .mini-cmd .in { padding: 10px 12px 26px; }
+  .mini-cmd .ft { height: 22px; background: linear-gradient(90deg, transparent, rgba(63,140,255,.9)); }
+  .mini-pill { position: absolute; transform: translateY(-58px); background: #fff; border: 2px solid var(--ink); border-radius: 999px; padding: 6px 12px; font-size: 12px; box-shadow: 0 0 0 4px rgba(63,140,255,.2), var(--shadow); white-space: nowrap; }
+  .mini-pill b { color: var(--blue); font-weight: 600; }
+  .mini-results { width: min(300px, 84%); display: flex; flex-direction: column; gap: 6px; }
+  .mini-results div { background: #fff; border-radius: 10px; padding: 7px 10px; font-size: 12px; box-shadow: var(--shadow); display: flex; justify-content: space-between; gap: 8px; }
+  .mini-results div span { color: var(--muted); }
+  .mini-results div em { font-style: normal; font-size: 10px; background: var(--ink); color: #fff; border-radius: 6px; padding: 1px 6px; }
+  .mini-slides { display: grid; grid-template-columns: repeat(3, 92px); gap: 8px; transform: rotate(-4deg); }
+  .mini-slides div { aspect-ratio: 16/9; background: #000; border-radius: 6px; color: #fff; font-size: 7px; display: grid; place-items: center; text-align: center; padding: 4px; box-shadow: var(--shadow); }
+  .mini-slides div.t { font-weight: 700; letter-spacing: .08em; font-size: 9px; }
+  .mini-file { display: flex; align-items: center; gap: 14px; }
+  .mini-file .doc { width: 64px; height: 80px; border-radius: 10px; background: #fff; box-shadow: var(--shadow); display: grid; place-items: center; font-weight: 700; font-size: 11px; color: var(--blue); }
+  .mini-file .arrow { width: 50px; height: 2px; background: linear-gradient(90deg, var(--ink), var(--blue-2)); }
+  .mini-file .ew { width: 72px; height: 72px; border-radius: 18px; background: var(--dark); box-shadow: var(--shadow-lg); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 12px; border-top: 3px solid var(--blue-2); }
+
+  /* steps */
+  .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; counter-reset: s; }
+  @media (max-width: 820px) { .steps { grid-template-columns: minmax(0, 1fr); } }
+  .step { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 22px; box-shadow: var(--shadow); }
+  .step::before { counter-increment: s; content: "0" counter(s); display: inline-block; font-weight: 600; font-size: 12px; color: var(--blue); background: var(--blue-soft); border-radius: 999px; padding: 2px 9px; margin-bottom: 14px; }
+  .step h3 { margin: 0 0 6px; font-size: 19px; letter-spacing: -.02em; }
+  .step p { margin: 0; color: var(--ink-2); }
+
+  /* faq */
+  .faq { display: grid; gap: 10px; max-width: 820px; }
+  .faq details { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 4px 18px; }
+  .faq summary { cursor: pointer; font-weight: 600; padding: 14px 0; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: "+"; color: var(--muted); font-weight: 400; font-size: 20px; line-height: 1; }
+  .faq details[open] summary::after { content: "–"; }
+  .faq details p { margin: 0 0 16px; color: var(--ink-2); }
+
+  footer { margin-top: 110px; border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--muted); font-size: 13px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; align-items: center; }
+
+  /* ---------- workspace (editor) ---------- */
+  #editor { padding-top: 56px; scroll-margin-top: 70px; }
+  .ws-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .ws-head h2 { margin: 0; font-size: clamp(28px, 4vw, 40px); }
+  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin: 0 0 16px; position: sticky; top: 64px; padding: 10px 12px; background: rgba(255,255,255,.82); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--line); border-radius: 14px; z-index: 5; box-shadow: var(--shadow); }
+  .bar .opts { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; color: var(--ink-2); font-size: 14px; }
+  #summary { font-weight: 600; color: var(--ink); }
   .bar .acts { display: flex; gap: 8px; }
-  .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 20px; align-items: start; }
+  .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; align-items: start; }
   @media (max-width: 820px) { .layout { grid-template-columns: minmax(0, 1fr); } .schedule { position: static !important; max-height: none !important; } }
-
-  .schedule { position: sticky; top: 76px; max-height: calc(100vh - 96px); overflow: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 14px; }
+  .schedule { position: sticky; top: 136px; max-height: calc(100vh - 156px); overflow: auto; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); padding: 14px; box-shadow: var(--shadow); }
+  .schedule h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 2px 0 10px; font-weight: 600; }
   .sched-list { list-style: none; margin: 0 0 12px; padding: 0; }
-  .sched-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; cursor: grab; border: 1px solid transparent; user-select: none; }
-  .sched-item:hover { background: rgba(255,255,255,.05); }
+  .sched-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 9px; cursor: grab; border: 1px solid transparent; user-select: none; font-size: 14px; }
+  .sched-item:hover { background: var(--bg); }
   .sched-item.dragging { opacity: .4; }
-  .sched-item.drop-before { border-top-color: var(--blue-soft); }
-  .sched-item.drop-after { border-bottom-color: var(--blue-soft); }
-  .sched-item .grip { color: var(--muted); font-size: 12px; }
+  .sched-item.drop-before { border-top-color: var(--blue); }
+  .sched-item.drop-after { border-bottom-color: var(--blue); }
+  .sched-item .grip { color: #b4b9c3; font-size: 12px; }
   .sched-item .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sched-item .count { color: var(--muted); font-size: 12px; }
-  .sched-item.section .name { color: var(--gold); font-weight: 600; text-transform: uppercase; font-size: 13px; letter-spacing: .04em; }
+  .sched-item .count { color: var(--muted); font-size: 12px; background: var(--bg); border-radius: 99px; padding: 0 7px; }
+  .sched-item .count:empty { display: none; }
+  .sched-item.section .name { color: var(--gold); font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: .06em; }
   .sched-add { display: flex; gap: 6px; flex-wrap: wrap; }
   .sched-add button { font-size: 13px; padding: 6px 10px; }
+  .hint { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
 
-  .card { min-width: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 16px; margin-bottom: 14px; scroll-margin-top: 80px; }
-  .card.flash { border-color: var(--blue-soft); }
-  .card.section { border-color: rgba(242,200,107,.35); }
-  .card-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
-  .card-head .kind { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 2px 8px; }
-  .card.section .kind { color: var(--gold); border-color: rgba(242,200,107,.35); }
+  .card { min-width: 0; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); padding: 16px; margin-bottom: 12px; scroll-margin-top: 140px; box-shadow: var(--shadow); transition: box-shadow .2s, border-color .2s; }
+  .card.flash { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(63,140,255,.2), var(--shadow); }
+  .card.section { background: linear-gradient(180deg, #fffaf0, #fff); border-color: rgba(183,121,31,.25); }
+  .card-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .card-head .kind { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); background: var(--bg); border-radius: 99px; padding: 3px 9px; font-weight: 600; }
+  .card.section .kind { color: var(--gold); background: #fdf1dc; }
   .card-head input { min-width: 0; }
   .card-head input.title { flex: 1 1 220px; font-weight: 600; }
   .card-head input.author { flex: 0 1 180px; }
   .card-head .tools { display: flex; gap: 6px; }
   .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
   @media (max-width: 1000px) { .cols { grid-template-columns: minmax(0, 1fr); } }
-  .slides { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr)); gap: 8px; align-content: start; max-height: 360px; overflow: auto; }
+  .slides { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr)); gap: 8px; align-content: start; max-height: 380px; overflow: auto; }
   .slide-wrap { display: flex; flex-direction: column; gap: 3px; }
-  .slide-label { font-size: 11px; color: var(--blue-soft); min-height: 1.3em; }
-  .slide { overflow-wrap: anywhere; aspect-ratio: 16/9; background: #000; border: 1px solid #1d2638; border-radius: 6px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 6px; text-align: center; font-size: 10px; line-height: 1.3; color: #fff; overflow: hidden; }
+  .slide-label { font-size: 11px; color: var(--blue); min-height: 1.3em; font-weight: 600; }
+  .slide { overflow-wrap: anywhere; aspect-ratio: 16/9; background: #000; border-radius: 8px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 6px; text-align: center; font-size: 10px; line-height: 1.3; color: #fff; overflow: hidden; box-shadow: 0 6px 14px -8px rgba(0,0,0,.6); }
   .slide.title { font-size: 15px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
-  .hint { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
 
-  .overlay { position: fixed; inset: 0; background: var(--bg); z-index: 20; overflow: auto; padding: 24px 16px 60px; }
-  .overlay-inner { max-width: 1180px; margin: 0 auto; }
-  .overlay-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; position: sticky; top: -24px; background: var(--bg); padding: 12px 0; }
-  .overlay-head h3 { margin: 0; font-size: 22px; }
-  .pv-item { margin-bottom: 26px; }
-  .pv-item h4 { margin: 0 0 8px; font-size: 15px; display: flex; gap: 10px; align-items: baseline; }
+  /* preview overlay */
+  .overlay { position: fixed; inset: 0; background: var(--bg); z-index: 50; overflow: auto; padding: 0 20px 60px; }
+  .overlay-inner { max-width: 1120px; margin: 0 auto; }
+  .overlay-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; position: sticky; top: 0; background: rgba(243,244,247,.9); backdrop-filter: blur(10px); padding: 16px 0; z-index: 1; border-bottom: 1px solid var(--line); }
+  .overlay-head h3 { margin: 0; font-size: 26px; letter-spacing: -.03em; }
+  .overlay .acts { display: flex; gap: 8px; }
+  .pv-item { margin-bottom: 28px; }
+  .pv-item h4 { margin: 0 0 10px; font-size: 16px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
   .pv-item h4 small { color: var(--muted); font-weight: 400; }
   .pv-slides { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 10px; }
   .pv-slides .slide { font-size: 13px; }
   .pv-slides .slide.title { font-size: 22px; }
+
+  @media (max-width: 560px) {
+    .hero { padding-top: 44px; }
+    .bar { position: static; }
+    .bar .acts { width: 100%; }
+    .bar .acts button { flex: 1; }
+    .card-head input.title, .card-head input.author { flex: 1 1 100%; }
+    .command .chips { display: none; }
+    .nav-cta .btn:not(.primary) { display: none; }
+    section.block { padding-top: 72px; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <h1>Lyrics → EasyWorship</h1>
-  <p class="lead">Upload a Word document of song lyrics in any layout, search for songs to add, or both. AI sorts it into title slides and songs, marks verses, choruses and bridges, and tidies the text. You can then reorder the schedule, preview every slide and download a <code>.ewsx</code> for EasyWorship.</p>
 
-  <div class="start">
-  <div>
-  <label class="drop" id="drop">
-    <input type="file" id="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-    <strong>Drop your lyrics .docx here</strong>
-    <span>or click to choose a file. Its songs are added to the schedule.</span>
-  </label>
-  <label class="ai-opt"><input type="checkbox" id="useAi" checked> Clean up with AI (sends the document's text to Groq and Google Gemini; turn off to use the basic rules only)</label>
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="logo" href="#top" aria-label="EWSchedule home">
+      <svg viewBox="0 0 30 18" fill="none" aria-hidden="true"><path d="M2 9c3-6 6-6 9 0s6 6 9 0 6-6 8 0" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></svg>
+      ewschedule
+    </a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn pill" href="#how">Learn more</a>
+      <a class="btn pill primary glow" href="#top" id="navStart">Start a schedule</a>
+    </div>
+  </div>
+</header>
 
-  </div>
-  <div class="finder">
-    <strong>Find a song</strong>
-    <form id="findForm" role="search">
-      <input type="search" id="findQ" placeholder="Song title, artist, or a line you remember" aria-label="Song title or lyrics" autocomplete="off">
-      <button class="primary" type="submit" id="findBtn">Search</button>
-    </form>
-    <ul class="results" id="results"></ul>
-    <p class="note">Lyrics come from LRCLIB and the web. Make sure your church is licensed (e.g. CCLI) to project the songs you use.</p>
-  </div>
-  </div>
-  <div class="status" id="status"></div>
+<main id="top">
+  <section class="hero">
+    <div class="ring" aria-hidden="true"></div>
+    <div class="hero-inner">
+      <span class="eyebrow"><b>New</b> Search any song by a line you remember</span>
+      <h1>Lyrics to EasyWorship.<br><span class="grad">Effortlessly.</span></h1>
+      <p class="lead">Drop in the week's lyrics document or search for songs. AI sorts it into songs and title slides, labels verses and choruses, and builds a schedule you can open straight in EasyWorship.</p>
 
-  <section id="editor" class="hidden">
+      <div class="command" id="drop">
+        <form id="findForm" role="search">
+          <input type="search" class="q" id="findQ" placeholder="Search a song title, artist, or a line you remember…" aria-label="Song title or lyrics" autocomplete="off">
+          <div class="row">
+            <label class="tool" for="file" title="Upload a .docx of lyrics" aria-label="Upload a .docx of lyrics">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.1 12.2 20.3a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
+            </label>
+            <button type="button" class="tool blue" id="addSongTop" title="Type or paste a song yourself" aria-label="Add a song by hand">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <button class="send" type="submit" id="findBtn">Search</button>
+          </div>
+        </form>
+        <ul class="results" id="results"></ul>
+        <div class="bar-foot">
+          <input type="file" id="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+          <span>Drop a lyrics <b>.docx</b> here or <label class="up" for="file">upload one</label></span>
+          <label class="ai-opt" title="Sends the document's text to Groq and Google Gemini"><input type="checkbox" id="useAi" checked> AI clean-up</label>
+          <span class="chips" aria-hidden="true"><span class="chip">DOCX</span><span class="chip">EWSX</span></span>
+        </div>
+      </div>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+      <p class="note">Lyrics come from LRCLIB and the web. Make sure your church is licensed (e.g. CCLI) to project the songs you use.</p>
+
+      <div class="works-label">Works with</div>
+      <div class="works">
+        <span><i style="background:#0f3b7d"></i>EasyWorship 7</span>
+        <span><i style="background:#2b579a"></i>Word .docx</span>
+        <span><i style="background:linear-gradient(135deg,#ff8a7a,#b9a8ff)"></i>LRCLIB</span>
+        <span><i style="background:#ffd23f"></i>Genius</span>
+        <span><i style="background:#f55036"></i>Groq</span>
+        <span><i style="background:linear-gradient(135deg,#4285f4,#a142f4)"></i>Gemini</span>
+      </div>
+    </div>
+
+    <div class="flow" aria-hidden="true">
+      <div class="left">
+        <div class="pillbox">
+          <span class="ghost">Sunday_04_10.docx</span>
+          <span class="pill">✦ Sort <b>this week's lyrics</b> into a schedule</span>
+          <span class="ghost">Find “Way Maker” by Sinach</span>
+        </div>
+        <div class="wire"></div>
+      </div>
+      <div class="orb">
+        <div class="core">
+          <svg viewBox="0 0 30 18" fill="none"><path d="M2 9c3-6 6-6 9 0s6 6 9 0 6-6 8 0" stroke="#0c0e13" stroke-width="3.2" stroke-linecap="round"/></svg>
+        </div>
+        <span class="tag">14 songs sorted</span>
+      </div>
+      <div class="right">
+        <div class="wire"></div>
+        <div class="card-out">
+          <strong>Schedule ready</strong> <span style="color:var(--muted)">· 102 slides</span>
+          <div class="rows">
+            <div class="r sec"><span>Praise</span></div>
+            <div class="r"><span>Turn Around</span><span>Akpororo</span></div>
+            <div class="r"><span>You Are Great</span><span>Moses Bliss</span></div>
+            <div class="r sec"><span>Worship</span></div>
+            <div class="r"><span>Ekwueme</span><span>Prospa Ochimana</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- workspace: appears once something is in the schedule -->
+  <section id="editor" class="wrap hidden" aria-labelledby="wsTitle">
+    <div class="ws-head">
+      <h2 id="wsTitle">Your <span class="grad">schedule</span></h2>
+      <p class="hint" style="margin:0">Drag to reorder. A <code>[Chorus]</code> line names the part below it; a blank line starts a new slide.</p>
+    </div>
     <div class="bar">
       <div class="opts">
         <span id="summary"></span>
@@ -160,14 +378,14 @@
         </label>
       </div>
       <div class="acts">
-        <button id="previewBtn">Preview schedule</button>
+        <button id="previewBtn">Preview</button>
         <button class="primary" id="download">Download .ewsx</button>
       </div>
     </div>
 
     <div class="layout">
       <aside class="schedule">
-        <h2>Schedule</h2>
+        <h3>Running order</h3>
         <ul class="sched-list" id="schedList"></ul>
         <div class="sched-add">
           <button id="addTitle">+ Title slide</button>
@@ -175,13 +393,86 @@
           <button id="clearAll" class="danger">Clear</button>
         </div>
       </aside>
-      <div>
-        <p class="hint">Drag items in the schedule to reorder them. In the lyrics boxes, a <code>[Chorus]</code> line names the part below it, and a blank line starts a new slide.</p>
-        <div id="cards"></div>
-      </div>
+      <div id="cards"></div>
+    </div>
+  </section>
+
+  <section class="block wrap" id="features">
+    <h2>Built for <span class="grad">Sunday mornings</span></h2>
+    <p class="sub">Everything the media team needs to go from a lyrics sheet to a projected schedule in minutes, not hours.</p>
+    <div class="bento">
+      <article class="tile w7">
+        <div class="art">
+          <span class="mini-pill">✦ Label <b>verses, choruses</b> and bridges</span>
+          <div class="mini-cmd"><div class="in">PRAISE A · 1. Your Great Name Lyrics · [Verse] We love to call Your name… [Chorus] King Jesus, no other name…</div><div class="ft"></div></div>
+        </div>
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg></div>
+        <h3>AI-first sorting</h3>
+        <p>Any layout of lyrics document becomes clean songs and title slides. Lyrics are never rewritten.</p>
+      </article>
+      <article class="tile w5">
+        <div class="art">
+          <div class="mini-results">
+            <div><b>Ekwueme</b><span>Prospa Ochimana</span><em>Add</em></div>
+            <div><b>Way Maker</b><span>Sinach</span><em>Add</em></div>
+            <div><b>Great Are You Lord</b><span>One Common</span><em>Add</em></div>
+          </div>
+        </div>
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg></div>
+        <h3>Find any song</h3>
+        <p>Search by title or by a line you remember, then add it in one click.</p>
+      </article>
+      <article class="tile w4">
+        <div class="art">
+          <div class="mini-file"><div class="doc">DOCX</div><div class="arrow"></div><div class="ew">EWSX</div></div>
+        </div>
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
+        <h3>Opens in EasyWorship</h3>
+        <p>Download a real .ewsx schedule. File → Open Schedule and you're live.</p>
+      </article>
+      <article class="tile w8">
+        <div class="art">
+          <div class="mini-slides">
+            <div class="t">PRAISE</div><div>Come and see oo, what the Lord has done<br>Come and see oo</div><div>Precious One o, Sweety Father eh<br>Daddy moh o</div>
+            <div>King Jesus, no other name<br>King Jesus, none stronger</div><div>Great are You, Lord</div><div class="t">WORSHIP</div>
+          </div>
+        </div>
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8"/></svg></div>
+        <h3>Preview every slide</h3>
+        <p>Two lines per slide by default, long lines on their own, translations kept with their line. Reorder and check everything before you download.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="block wrap" id="how">
+    <h2>How it <span class="grad">works</span></h2>
+    <p class="sub">Three steps, and it all happens in your browser except the AI sorting and song search.</p>
+    <div class="steps">
+      <div class="step"><h3>Add your songs</h3><p>Upload the week's lyrics .docx, search for songs by title or a remembered line, or both, in any order.</p></div>
+      <div class="step"><h3>Check the schedule</h3><p>Rename, reorder, add title slides like Praise or Worship, and fix any lyric right in the editor.</p></div>
+      <div class="step"><h3>Download &amp; project</h3><p>Preview every slide, then download the .ewsx and open it in EasyWorship with File → Open Schedule.</p></div>
+    </div>
+  </section>
+
+  <section class="block wrap" id="faq">
+    <h2>Questions</h2>
+    <p class="sub">The short answers.</p>
+    <div class="faq">
+      <details><summary>Which EasyWorship versions does it work with?</summary><p>It creates EasyWorship 7 schedules (.ewsx), using the same format and theme settings as a schedule saved from EasyWorship 7.</p></details>
+      <details><summary>Does the AI change our lyrics?</summary><p>No. The AI only decides where songs start and end, the titles, and the verse and chorus labels. The words on the slides come straight from your document. The only automatic tidy-ups are spacing, removing markers like “x3”, and capitalising the first letter of each line.</p></details>
+      <details><summary>What if a song isn't found by search?</summary><p>Add it with “+ Song” and paste the lyrics, or include it in your .docx. If a song is found but its lyrics aren't, it's added with its title so you can paste the words in.</p></details>
+      <details><summary>Is my document uploaded anywhere?</summary><p>With AI clean-up on, the document's text is sent to Groq and Google Gemini to sort it. Turn AI clean-up off to process everything in your browser with the basic rules. The schedule file itself is always built in your browser.</p></details>
+      <details><summary>Do we need a licence to project songs?</summary><p>Yes. Projecting copyrighted songs normally needs a licence such as CCLI. This tool helps you prepare slides; it doesn't grant any rights to the songs.</p></details>
     </div>
   </section>
 </main>
+
+<footer>
+  <div class="wrap">
+    <span>ewschedule · Lyrics to EasyWorship</span>
+    <span>Not affiliated with EasyWorship or Softouch Development.</span>
+  </div>
+</footer>
 
 <div class="overlay hidden" id="overlay" role="dialog" aria-modal="true" aria-labelledby="pvTitle">
   <div class="overlay-inner">
@@ -402,6 +693,7 @@
       if (!added.length) throw new Error('No lyrics found in that document.');
       items = items.concat(added);
       render();
+      $('editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
       var songs = added.filter(function (x) { return x.kind === 'song'; }).length;
       status(note || ((hadItems ? 'Added ' : 'Found ') + songs + ' songs from ' + file.name + (hadItems ? ' to the end of the schedule.' : '.') + checkNote + ' Check them below, then download.'), note ? 'err' : '');
     }).catch(function (e) { status(e.message, 'err'); });
@@ -532,6 +824,10 @@
       status('Schedule cleared.');
     }
   };
+  $('addSongTop').onclick = function () { $('addSong').click(); var c = document.querySelector('.card:last-child'); if (c) { c.scrollIntoView({ behavior: 'smooth', block: 'start' }); c.querySelector('textarea').focus(); } };
+  $('navStart').onclick = function (e) { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); setTimeout(function () { $('findQ').focus({ preventScroll: true }); }, 300); };
+  var nav = $('nav');
+  window.addEventListener('scroll', function () { nav.classList.toggle('scrolled', window.scrollY > 8); }, { passive: true });
   $('previewBtn').onclick = openPreview;
   $('closePreview').onclick = closePreview;
   $('download').onclick = download;
