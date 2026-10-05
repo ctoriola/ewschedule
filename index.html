@@ -101,7 +101,7 @@
     <strong>Drop your lyrics .docx here</strong>
     <span>or click to choose a file</span>
   </label>
-  <label class="ai-opt"><input type="checkbox" id="useAi" checked> Clean up with AI (sends the document's text to Groq; turn off to use the basic rules only)</label>
+  <label class="ai-opt"><input type="checkbox" id="useAi" checked> Clean up with AI (sends the document's text to Groq and Google Gemini; turn off to use the basic rules only)</label>
   <div class="status" id="status"></div>
 
   <section id="editor" class="hidden">
@@ -327,7 +327,8 @@
     if (!/\.docx$/i.test(file.name)) { status('Please choose a .docx Word file. (Older .doc files need to be saved as .docx first.)', 'err'); return; }
     docName = file.name.replace(/\.docx$/i, '');
     var useAi = $('useAi').checked;
-    status(useAi ? 'Reading ' + file.name + ' and sorting it with AI. This can take up to a minute…' : 'Reading ' + file.name + '…', 'busy');
+    var checkNote = '';
+    status(useAi ? 'Reading ' + file.name + ' and sorting it with AI, then checking titles online. This can take up to a minute…' : 'Reading ' + file.name + '…', 'busy');
     JSZip.loadAsync(file).then(function (zip) {
       var doc = zip.file('word/document.xml');
       if (!doc) throw new Error('That file does not look like a Word document.');
@@ -343,7 +344,10 @@
       if (!useAi) return basic('');
       return structureWithAi(lines).then(function (data) {
         items = fromParsed(data.items);
-        return data.coverage < 0.97 ? 'The AI may have left out a few lines. Compare the songs below with your document before downloading.' : '';
+        checkNote = data.checked
+          ? ' Checked by Gemini: ' + (data.identified || 0) + ' song' + (data.identified === 1 ? '' : 's') + ' identified online.'
+          : '';
+        return '';
       }).catch(function (e) {
         return basic(e.message + ' Used the basic rules instead, so check the songs below.');
       });
@@ -351,7 +355,7 @@
       if (!items.length) throw new Error('No lyrics found in that document.');
       render();
       var songs = items.filter(function (x) { return x.kind === 'song'; }).length;
-      status(note || ('Found ' + songs + ' songs in ' + file.name + '. Check them below, then download.'), note ? 'err' : '');
+      status(note || ('Found ' + songs + ' songs in ' + file.name + '.' + checkNote + ' Check them below, then download.'), note ? 'err' : '');
     }).catch(function (e) { status(e.message, 'err'); });
   }
 

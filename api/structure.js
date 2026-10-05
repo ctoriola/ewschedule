@@ -4,6 +4,8 @@
 // labels. The model only returns line numbers; the lyric text itself is
 // always taken from the document, so nothing can be dropped or rewritten.
 
+import { judge } from './_judge.js';
+
 const MAX_CHARS = 60000;
 const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 // Groq counts input + max_completion_tokens against the tokens-per-minute
@@ -106,7 +108,17 @@ export default async function handler(req, res) {
     res.status(lastError.status || 502).json({ error: lastError.message });
     return;
   }
-  res.status(200).json({ items: best.items, coverage: Math.round(best.coverage * 100) / 100, debug: best.debug });
+  // Second opinion: Gemini checks titles, artists, labels and split songs.
+  const judged = await judge(best.items, { cleanLabel, cleanTitle, titleCase });
+  res.status(200).json({
+    items: judged.items,
+    coverage: Math.round(best.coverage * 100) / 100,
+    checked: judged.checked,
+    identified: judged.identified,
+    changed: judged.changed,
+    judgeError: judged.judgeError,
+    debug: best.debug,
+  });
 }
 
 async function callGroq(numbered) {
