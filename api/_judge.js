@@ -44,6 +44,7 @@ function render(items) {
 async function askGemini(items) {
   const parsed = await geminiJson(JUDGE_SYSTEM, render(items));
   if (!Array.isArray(parsed.songs)) throw new Error('Gemini reply has no songs list');
+  parsed.songs._model = parsed._model;
   return parsed.songs;
 }
 
@@ -106,10 +107,10 @@ export async function judge(items, helpers) {
     const verdicts = await askGemini(items);
     const { items: fixed, changed } = apply(items, verdicts, helpers);
     const identified = verdicts.filter((v) => v && v.identified).length;
-    return { items: fixed, checked: true, changed, identified };
+    return { items: fixed, checked: true, changed, identified, model: verdicts._model };
   } catch (err) {
     console.error('Judge failed:', err.message);
-    return { items, checked: false, judgeError: err.message.slice(0, 300) };
+    return { items, checked: false, judgeError: err.message.slice(0, 1500) };
   }
 }
 

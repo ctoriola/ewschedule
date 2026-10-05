@@ -43,7 +43,8 @@ export default async function handler(req, res) {
       res.status(400).json({ error: 'Type a song title or a line from the song.' });
       return;
     }
-    res.status(200).json({ results: await search(q) });
+    const results = await search(q);
+    res.status(200).json({ results, identifyError: results.identifyError || undefined });
   } catch (err) {
     console.error('song search failed', err);
     res.status(502).json({ error: 'Song search is not working right now. Try again shortly.' });
@@ -106,10 +107,14 @@ async function search(q) {
   });
   // Plain LRCLIB matches (title searches)
   direct.slice(0, 6).forEach(add);
+  results.identifyError = lastIdentifyError;
   return results;
 }
 
+let lastIdentifyError = null;
+
 async function identify(q) {
+  lastIdentifyError = null;
   if (!process.env.GEMINI_API_KEY) return [];
   try {
     const data = await geminiJson(IDENTIFY_SYSTEM, q, { maxTokens: 2048 });
@@ -119,6 +124,7 @@ async function identify(q) {
       .map((m) => ({ title: m.title.trim(), artist: typeof m.artist === 'string' ? m.artist.trim() : '' }));
   } catch (err) {
     console.error('identify failed', err.message);
+    lastIdentifyError = err.message.slice(0, 1500);
     return [];
   }
 }

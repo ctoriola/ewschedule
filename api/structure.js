@@ -117,6 +117,7 @@ export default async function handler(req, res) {
     identified: judged.identified,
     changed: judged.changed,
     judgeError: judged.judgeError,
+    judgeModel: judged.model,
     debug: best.debug,
   });
 }
