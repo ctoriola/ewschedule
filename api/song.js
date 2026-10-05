@@ -94,10 +94,16 @@ async function lrclibFor(title, artist) {
 // ---------- search ----------
 
 async function search(q) {
-  const [direct, identified] = await Promise.all([
+  const [direct, fromGenius, fromGemini] = await Promise.all([
     lrclib({ q }).catch(() => []),
+    genius(q),
     identify(q),
   ]);
+  // Genius matches lyric text directly, so its hits go first
+  const identified = [];
+  for (const m of fromGenius.concat(fromGemini)) {
+    if (identified.length < 5 && !identified.some((x) => sameSong(x, m))) identified.push(m);
+  }
 
   const results = [];
   const add = (r) => {
@@ -114,6 +120,31 @@ async function search(q) {
   direct.slice(0, 6).forEach(add);
   results.identifyError = lastIdentifyError;
   return results;
+}
+
+// Genius search (needs a free access token from genius.com/api-clients)
+// matches a remembered lyric line against song lyrics very well.
+async function genius(q) {
+  if (!process.env.GENIUS_ACCESS_TOKEN) return [];
+  try {
+    const r = await fetch('https://api.genius.com/search?' + new URLSearchParams({ q }), {
+      headers: { Authorization: 'Bearer ' + process.env.GENIUS_ACCESS_TOKEN, 'User-Agent': UA },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) throw new Error('Genius ' + r.status);
+    const data = await r.json();
+    const hits = (data.response && data.response.hits) || [];
+    return hits
+      .filter((h) => h.type === 'song' && h.result && h.result.title)
+      .slice(0, 4)
+      .map((h) => ({
+        title: h.result.title.replace(/\s*\(.*?(live|remix|version|instrumental).*?\)\s*$/i, '').trim(),
+        artist: (h.result.primary_artist && h.result.primary_artist.name) || '',
+      }));
+  } catch (err) {
+    console.error('genius search failed', err.message);
+    return [];
+  }
 }
 
 let lastIdentifyError = null;

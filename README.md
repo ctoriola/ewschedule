@@ -24,7 +24,8 @@ A `.ewsx` is a zip containing `main.db` (SQLite). The generator clones the templ
 
 1. Import the repo into Vercel (no build step needed).
 2. Add an environment variable `GROQ_API_KEY` with your Groq API key (from console.groq.com). Optionally set `GROQ_MODEL`, `GROQ_REASONING` (low/medium/high) and `GROQ_TPM` (your plan's tokens-per-minute limit).
-3. Add `GEMINI_API_KEY` (from aistudio.google.com) to turn on the AI check. Optionally set `GEMINI_MODEL` (default `gemini-3.5-flash`).
+3. Optional: add `GENIUS_ACCESS_TOKEN` (free, from genius.com/api-clients → "Generate Access Token") so song search can find songs from a remembered lyric line.
+4. Add `GEMINI_API_KEY` (from aistudio.google.com) to turn on the AI check. Optionally set `GEMINI_MODEL` (default `gemini-3.5-flash`).
 
 Without the key the app still works, using the rule-based parser.
 
