@@ -120,7 +120,7 @@
   .works-label { text-align: center; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; margin-top: 40px; }
 
   /* ---------- flow diagram ---------- */
-  .flow { position: relative; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0; max-width: 900px; margin: 56px auto 0; padding: 0 20px; }
+  .flow { position: relative; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0; max-width: 900px; margin: 8px auto 56px; padding: 0; }
   .flow .pillbox { justify-self: end; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
   .flow .ghost { font-size: 12px; color: var(--muted); opacity: .7; }
   .flow .pill { background: var(--surface); border: 2px solid var(--ink); border-radius: 999px; padding: 9px 16px; font-size: 13px; font-weight: 500; box-shadow: 0 0 0 4px rgba(63,140,255,.25), var(--shadow); white-space: nowrap; display: flex; gap: 8px; align-items: center; }
@@ -187,7 +187,7 @@
   .step p { margin: 0; color: var(--ink-2); }
 
   /* faq */
-  .faq { display: grid; gap: 10px; max-width: 820px; }
+  .faq { display: grid; gap: 10px; }
   .faq details { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 4px 18px; }
   .faq summary { cursor: pointer; font-weight: 600; padding: 14px 0; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
   .faq summary::-webkit-details-marker { display: none; }
@@ -331,35 +331,6 @@
       </div>
     </div>
 
-    <div class="flow" aria-hidden="true">
-      <div class="left">
-        <div class="pillbox">
-          <span class="ghost">Sunday_04_10.docx</span>
-          <span class="pill">✦ Sort <b>this week's lyrics</b> into a schedule</span>
-          <span class="ghost">Find “Way Maker” by Sinach</span>
-        </div>
-        <div class="wire"></div>
-      </div>
-      <div class="orb">
-        <div class="core">
-          <svg viewBox="0 0 30 18" fill="none"><path d="M2 9c3-6 6-6 9 0s6 6 9 0 6-6 8 0" stroke="#0c0e13" stroke-width="3.2" stroke-linecap="round"/></svg>
-        </div>
-        <span class="tag">14 songs sorted</span>
-      </div>
-      <div class="right">
-        <div class="wire"></div>
-        <div class="card-out">
-          <strong>Schedule ready</strong> <span style="color:var(--muted)">· 102 slides</span>
-          <div class="rows">
-            <div class="r sec"><span>Praise</span></div>
-            <div class="r"><span>Turn Around</span><span>Akpororo</span></div>
-            <div class="r"><span>You Are Great</span><span>Moses Bliss</span></div>
-            <div class="r sec"><span>Worship</span></div>
-            <div class="r"><span>Ekwueme</span><span>Prospa Ochimana</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
   </section>
 
   <!-- workspace: appears once something is in the schedule -->
@@ -448,6 +419,35 @@
   <section class="block wrap" id="how">
     <h2>How it <span class="grad">works</span></h2>
     <p class="sub">Three steps, and it all happens in your browser except the AI sorting and song search.</p>
+    <div class="flow" aria-hidden="true">
+      <div class="left">
+        <div class="pillbox">
+          <span class="ghost">Sunday_04_10.docx</span>
+          <span class="pill">✦ Sort <b>this week's lyrics</b> into a schedule</span>
+          <span class="ghost">Find “Way Maker” by Sinach</span>
+        </div>
+        <div class="wire"></div>
+      </div>
+      <div class="orb">
+        <div class="core">
+          <svg viewBox="0 0 30 18" fill="none"><path d="M2 9c3-6 6-6 9 0s6 6 9 0 6-6 8 0" stroke="#0c0e13" stroke-width="3.2" stroke-linecap="round"/></svg>
+        </div>
+        <span class="tag">14 songs sorted</span>
+      </div>
+      <div class="right">
+        <div class="wire"></div>
+        <div class="card-out">
+          <strong>Schedule ready</strong> <span style="color:var(--muted)">· 102 slides</span>
+          <div class="rows">
+            <div class="r sec"><span>Praise</span></div>
+            <div class="r"><span>Turn Around</span><span>Akpororo</span></div>
+            <div class="r"><span>You Are Great</span><span>Moses Bliss</span></div>
+            <div class="r sec"><span>Worship</span></div>
+            <div class="r"><span>Ekwueme</span><span>Prospa Ochimana</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="steps">
       <div class="step"><h3>Add your songs</h3><p>Upload the week's lyrics .docx, search for songs by title or a remembered line, or both, in any order.</p></div>
       <div class="step"><h3>Check the schedule</h3><p>Rename, reorder, add title slides like Praise or Worship, and fix any lyric right in the editor.</p></div>
